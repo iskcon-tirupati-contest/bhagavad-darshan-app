@@ -13,7 +13,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AdminPanelSettings
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
@@ -40,10 +42,16 @@ import com.iskcon.bhagavaddarshan.data.Subscription
 @Composable
 fun HomeScreen(
     viewModel: SubscriptionViewModel,
+    agentName: String,
+    isAdmin: Boolean,
+    paymentBanner: String? = null,
+    onDismissBanner: () -> Unit = {},
     onRegister: () -> Unit,
     onSearch: () -> Unit,
     onExpiring: () -> Unit,
-    onOpen: (Long) -> Unit
+    onOpen: (Long) -> Unit,
+    onAdmin: () -> Unit = {},
+    onLogout: () -> Unit = {}
 ) {
     val list by viewModel.subscriptions.collectAsState()
     val expiring by viewModel.expiring.collectAsState()
@@ -53,20 +61,28 @@ fun HomeScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("భాగవత దర్శనం", style = MaterialTheme.typography.titleLarge)
+                        Text("Bhagavad Darshan", style = MaterialTheme.typography.titleLarge)
                         Text(
-                            "Subscription Manager",
+                            "Namaste, $agentName",
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
                         )
                     }
                 },
                 actions = {
+                    if (isAdmin) {
+                        IconButton(onClick = onAdmin) {
+                            Icon(Icons.Default.AdminPanelSettings, contentDescription = "Admin")
+                        }
+                    }
                     IconButton(onClick = onExpiring) {
                         Icon(Icons.Default.Warning, contentDescription = "Expiring")
                     }
                     IconButton(onClick = onSearch) {
                         Icon(Icons.Default.Search, contentDescription = "Search")
+                    }
+                    IconButton(onClick = onLogout) {
+                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -88,6 +104,23 @@ fun HomeScreen(
                 .padding(padding)
                 .padding(16.dp)
         ) {
+            if (paymentBanner != null) {
+                Card(
+                    onClick = onDismissBanner,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    )
+                ) {
+                    Text(
+                        paymentBanner,
+                        modifier = Modifier.padding(12.dp),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                }
+            }
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -114,7 +147,7 @@ fun HomeScreen(
             Spacer(Modifier.height(8.dp))
             if (list.isEmpty()) {
                 Text(
-                    "No subscriptions yet. Tap + to register a devotee.",
+                    "Loading subscribers… or tap + to register.",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
                 )

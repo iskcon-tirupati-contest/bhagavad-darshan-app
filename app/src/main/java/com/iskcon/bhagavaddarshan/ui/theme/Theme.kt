@@ -1,8 +1,6 @@
 package com.iskcon.bhagavaddarshan.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
@@ -10,33 +8,28 @@ import androidx.compose.ui.graphics.Color
 private val LightColors = lightColorScheme(
     primary = Saffron,
     onPrimary = Color.White,
-    primaryContainer = CreamDark,
+    primaryContainer = Color(0xFFFFE0B2),
     onPrimaryContainer = Ink,
     secondary = Leaf,
     onSecondary = Color.White,
-    background = Cream,
+    secondaryContainer = Color(0xFFC8E6C9),
+    onSecondaryContainer = Color(0xFF1B5E20),
+    background = Color(0xFFFFFBFE),
     onBackground = Ink,
     surface = Color.White,
     onSurface = Ink,
+    surfaceVariant = Color(0xFFF5F0EB),
+    onSurfaceVariant = Color(0xFF4A4035),
+    outline = Color(0xFFBDB0A0),
     error = SoftRed
-)
-
-private val DarkColors = darkColorScheme(
-    primary = Saffron,
-    onPrimary = Color.White,
-    background = Color(0xFF1A1208),
-    onBackground = Cream,
-    surface = Color(0xFF2A1F14),
-    onSurface = Cream
 )
 
 @Composable
 fun BhagavadDarshanTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
+        colorScheme = LightColors,
         typography = Typography,
         content = content
     )

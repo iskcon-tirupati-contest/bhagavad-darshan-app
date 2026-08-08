@@ -16,18 +16,26 @@ data class Subscription(
     val pincode: String = "",
     val state: String = "Andhra Pradesh",
     val phone: String,
-    val planYears: Int,
-    val magazineAmount: Int,
-    val postageAmount: Int,
-    val totalAmount: Int,
-    val giftBooks: Int,
-    /** First magazine month as yyyy-MM (month after payment). */
+    /** Flyer plan years (0 when book-redeem months-only). */
+    val planYears: Int = 0,
+    /** Duration in months (years*12 or book redeem months). */
+    val planMonths: Int = 12,
+    val magazineAmount: Int = 0,
+    val postageAmount: Int = 0,
+    val totalAmount: Int = 0,
+    val giftBooks: Int = 0,
+    val bookSaleAmount: Int = 0,
     val startMonth: String,
-    /** Inclusive end date as yyyy-MM-dd. */
     val endDate: String,
     val status: String = Status.ACTIVE,
     val paymentRef: String = "",
+    val paymentMethod: String = "",
+    val paymentProofPath: String = "",
     val collectorName: String = "",
+    val agentId: Long = 0,
+    /** "self" for website/PDF import; agent display name when an agent registers. */
+    val registeredBy: String = "self",
+    val razorpayQrId: String = "",
     val source: String = Source.COLLECTOR,
     val notes: String = "",
     val createdAt: Long = System.currentTimeMillis()
@@ -37,11 +45,13 @@ data class Subscription(
         const val ACTIVE = "active"
         const val EXPIRING = "expiring"
         const val EXPIRED = "expired"
+        const val PAYMENT_FAILED = "payment_failed"
     }
 
     object Source {
         const val COLLECTOR = "collector"
         const val SELF = "self"
         const val ADMIN = "admin"
+        const val BOOK_REDEEM = "book_redeem"
     }
 }

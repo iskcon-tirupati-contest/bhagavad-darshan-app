@@ -5,6 +5,8 @@ plugins {
     alias(libs.plugins.ksp)
 }
 
+import java.util.Properties
+
 android {
     namespace = "com.iskcon.bhagavaddarshan"
     compileSdk = 35
@@ -13,9 +15,36 @@ android {
         applicationId = "com.iskcon.bhagavaddarshan"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = 9
+        versionName = "1.6.2"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        val localProps = Properties()
+        val localFile = rootProject.file("local.properties")
+        if (localFile.exists()) {
+            localFile.inputStream().use { localProps.load(it) }
+        }
+        fun prop(name: String): String =
+            (localProps.getProperty(name) ?: "").trim().replace("\"", "\\\"")
+
+        buildConfigField("String", "RAZORPAY_KEY_ID", "\"${prop("razorpay.keyId")}\"")
+        buildConfigField("String", "RAZORPAY_KEY_SECRET", "\"${prop("razorpay.keySecret")}\"")
+        buildConfigField("String", "UPI_VPA", "\"${prop("upi.vpa")}\"")
+        buildConfigField("String", "MNV_API_KEY", "\"${prop("mnv.apiKey")}\"")
+        buildConfigField("String", "MNV_API_URL", "\"${prop("mnv.apiUrl")}\"")
+        buildConfigField("String", "MNV_CAMPAIGN_NAME", "\"${prop("mnv.campaignName")}\"")
+        buildConfigField("String", "MNV_USERNAME", "\"${prop("mnv.username")}\"")
+        buildConfigField(
+            "String",
+            "MNV_REGISTRATION_CAMPAIGN",
+            "\"${prop("mnv.registrationCampaign")}\""
+        )
+        buildConfigField(
+            "String",
+            "MNV_DISPATCH_CAMPAIGN",
+            "\"${prop("mnv.dispatchCampaign")}\""
+        )
+        buildConfigField("String", "WABA_API_KEY", "\"${prop("waba.apiKey")}\"")
     }
 
     buildTypes {
@@ -37,6 +66,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 
@@ -56,6 +86,9 @@ dependencies {
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     ksp(libs.androidx.room.compiler)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("io.coil-kt:coil-compose:2.7.0")
+    implementation("com.google.zxing:core:3.5.3")
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)

@@ -3,14 +3,18 @@ package com.iskcon.bhagavaddarshan.ui.screens
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.iskcon.bhagavaddarshan.data.IndianStates
 import com.iskcon.bhagavaddarshan.data.Subscription
 import com.iskcon.bhagavaddarshan.data.SubscriptionPlan
 import com.iskcon.bhagavaddarshan.data.SubscriptionRepository
+import com.iskcon.bhagavaddarshan.payment.BookRedeemCalculator
+import com.iskcon.bhagavaddarshan.util.FormValidators
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -23,14 +27,18 @@ data class RegisterFormState(
     val mandal: String = "",
     val district: String = "",
     val pincode: String = "",
-    val state: String = "Andhra Pradesh",
+    val state: String = IndianStates.DEFAULT,
     val phone: String = "",
     val plan: SubscriptionPlan = SubscriptionPlan.ONE_YEAR,
-    val paymentRef: String = "",
-    val collectorName: String = "",
-    val notes: String = "",
+    /** Book sale amount for redeem mode. */
+    val bookSaleAmount: String = "",
     val error: String? = null,
     val savedReceiptNo: Long? = null
+)
+
+private data class ListScope(
+    val agentId: Long?,
+    val isAdmin: Boolean
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -38,9 +46,44 @@ class SubscriptionViewModel(
     private val repository: SubscriptionRepository
 ) : ViewModel() {
 
+    private val _scope = MutableStateFlow(ListScope(agentId = null, isAdmin = true))
+
+    /**
+     * Restrict list/search flows to an agent, or show all when [isAdmin] is true.
+     */
+    fun setScope(agentId: Long?, isAdmin: Boolean) {
+        _scope.value = ListScope(agentId = agentId, isAdmin = isAdmin)
+    }
+
     val subscriptions: StateFlow<List<Subscription>> =
-        repository.observeAll()
+        _scope.flatMapLatest { scope ->
+            when {
+                scope.isAdmin || scope.agentId == null || scope.agentId <= 0L ->
+                    repository.observeAll()
+                else -> repository.observeByAgent(scope.agentId)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /** Alias used by Customers tab. */
+    val scopedSubscriptions: StateFlow<List<Subscription>> = subscriptions
+
+    val pending: StateFlow<List<Subscription>> =
+        repository.observePending()
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    val pendingScoped: StateFlow<List<Subscription>> =
+        _scope.flatMapLatest { scope ->
+            when {
+                scope.isAdmin || scope.agentId == null || scope.agentId <= 0L ->
+                    repository.observePending()
+                else -> repository.observePendingForAgent(scope.agentId)
+            }
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    private val _pendingTick = MutableStateFlow(0)
+    fun refreshPending() {
+        _pendingTick.value = _pendingTick.value + 1
+    }
 
     val expiring: StateFlow<List<Subscription>> =
         repository.observeExpiringSoon(30)
@@ -50,7 +93,14 @@ class SubscriptionViewModel(
     val query = _query.asStateFlow()
 
     val searchResults: StateFlow<List<Subscription>> =
-        _query.flatMapLatest { repository.search(it) }
+        combine(_query, _scope) { q, scope -> q to scope }
+            .flatMapLatest { (q, scope) ->
+                when {
+                    scope.isAdmin || scope.agentId == null || scope.agentId <= 0L ->
+                        repository.searchAll(q)
+                    else -> repository.searchForAgent(scope.agentId, q)
+                }
+            }
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _form = MutableStateFlow(RegisterFormState())
@@ -64,7 +114,7 @@ class SubscriptionViewModel(
     }
 
     fun updateForm(transform: (RegisterFormState) -> RegisterFormState) {
-        _form.value = transform(_form.value).copy(error = null, savedReceiptNo = null)
+        _form.value = transform(_form.value).copy(savedReceiptNo = null)
     }
 
     fun resetForm() {
@@ -77,11 +127,39 @@ class SubscriptionViewModel(
         }
     }
 
-    fun saveRegistration(onSuccess: (Long) -> Unit) {
+    fun validateRegistrationForm(forBookRedeem: Boolean = false): String? {
         val f = _form.value
-        val error = validate(f)
-        if (error != null) {
-            _form.value = f.copy(error = error)
+        FormValidators.name(f.name)?.let { return it }
+        FormValidators.phone(f.phone)?.let { return it }
+        FormValidators.pincode(f.pincode)?.let { return it }
+        if (f.villageTown.isBlank() && f.district.isBlank()) {
+            return "Enter village/town or district"
+        }
+        if (forBookRedeem) {
+            val amt = f.bookSaleAmount.toIntOrNull() ?: 0
+            if (!BookRedeemCalculator.isEligible(amt)) {
+                return "Book sale must be at least ₹1000 (₹1000 = 1 month)"
+            }
+        }
+        return null
+    }
+
+    fun saveRegistration(
+        collectorName: String,
+        agentId: Long,
+        paymentRef: String = "",
+        paymentMethod: String = "",
+        paymentProofPath: String = "",
+        bookSaleAmount: Int = 0,
+        planMonthsOverride: Int? = null,
+        source: String = Subscription.Source.COLLECTOR,
+        registeredBy: String = collectorName.ifBlank { "self" },
+        onSuccess: (Long) -> Unit = {}
+    ) {
+        val f = _form.value
+        val err = validateRegistrationForm(bookSaleAmount > 0)
+        if (err != null) {
+            _form.value = f.copy(error = err)
             return
         }
         viewModelScope.launch {
@@ -95,15 +173,49 @@ class SubscriptionViewModel(
                 pincode = f.pincode,
                 state = f.state,
                 phone = f.phone,
-                plan = f.plan,
-                paymentRef = f.paymentRef,
-                collectorName = f.collectorName,
-                notes = f.notes
+                plan = if (bookSaleAmount > 0) null else f.plan,
+                planMonths = planMonthsOverride
+                    ?: if (bookSaleAmount > 0) BookRedeemCalculator.monthsForSale(bookSaleAmount)
+                    else f.plan.years * 12,
+                bookSaleAmount = bookSaleAmount,
+                paymentRef = paymentRef,
+                paymentMethod = paymentMethod,
+                paymentProofPath = paymentProofPath,
+                collectorName = collectorName,
+                agentId = agentId,
+                registeredBy = registeredBy,
+                source = source
             )
             val saved = repository.getById(id)
             _form.value = f.copy(savedReceiptNo = saved?.receiptNo, error = null)
             onSuccess(id)
         }
+    }
+
+    fun saveRegistrationAfterPayment(
+        paymentId: String,
+        collectorName: String,
+        agentId: Long,
+        paymentMethod: String,
+        paymentProofPath: String = "",
+        bookSaleAmount: Int = 0,
+        planMonthsOverride: Int? = null,
+        source: String = Subscription.Source.COLLECTOR,
+        registeredBy: String = collectorName.ifBlank { "self" },
+        onSuccess: (Long) -> Unit = {}
+    ) {
+        saveRegistration(
+            collectorName = collectorName,
+            agentId = agentId,
+            paymentRef = paymentId,
+            paymentMethod = paymentMethod,
+            paymentProofPath = paymentProofPath,
+            bookSaleAmount = bookSaleAmount,
+            planMonthsOverride = planMonthsOverride,
+            source = source,
+            registeredBy = registeredBy,
+            onSuccess = onSuccess
+        )
     }
 
     fun markActive(id: Long) {
@@ -114,21 +226,25 @@ class SubscriptionViewModel(
         }
     }
 
+    fun markPaidWithRef(
+        id: Long,
+        paymentId: String,
+        paymentMethod: String = "",
+        proofPath: String = "",
+        onDone: () -> Unit = {}
+    ) {
+        viewModelScope.launch {
+            repository.markPaid(id, paymentId, paymentMethod, proofPath)
+            _selected.value = repository.getById(id)
+            onDone()
+        }
+    }
+
     fun delete(id: Long, onDone: () -> Unit) {
         viewModelScope.launch {
             repository.delete(id)
             onDone()
         }
-    }
-
-    private fun validate(f: RegisterFormState): String? {
-        if (f.name.isBlank()) return "Name is required"
-        if (f.phone.length < 10) return "Enter a valid 10-digit phone"
-        if (f.pincode.isNotBlank() && f.pincode.length != 6) return "Pincode must be 6 digits"
-        if (f.villageTown.isBlank() && f.district.isBlank()) {
-            return "Enter village/town or district"
-        }
-        return null
     }
 }
 
