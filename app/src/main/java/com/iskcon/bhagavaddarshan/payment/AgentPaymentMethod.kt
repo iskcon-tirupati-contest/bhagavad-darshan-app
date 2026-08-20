@@ -1,8 +1,7 @@
 package com.iskcon.bhagavaddarshan.payment
 
 enum class AgentPaymentMethod(val routeKey: String, val label: String) {
-    DYNAMIC_QR("dynamic", "Dynamic QR (plan amount)"),
-    TEMPLE_QR("temple", "Temple static QR"),
+    DYNAMIC_QR("dynamic", "Razorpay UPI QR"),
     CASH("cash", "Cash by hand"),
     BOOK_REDEEM("books", "Redeem by book sales");
 

@@ -25,6 +25,12 @@ enum class SubscriptionPlan(
     val postageRupees: Int get() = postagePaise / 100
     val totalRupees: Int get() = totalPaise / 100
 
+    val title: String get() = "$years year plan"
+    val priceAmount: Int get() = totalRupees
+    val description: String
+        get() = "Magazine ₹$magazineRupees + postage ₹$postageRupees · $giftBooks gift book(s)"
+    val isPopular: Boolean get() = years == 3
+
     /** @deprecated Use [labelEn]; kept for call-site compatibility. */
     val labelTe: String get() = labelEn
 

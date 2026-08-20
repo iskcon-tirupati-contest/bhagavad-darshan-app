@@ -12,3 +12,6 @@ app/build
 *.ap_
 *.aab
 .kotlin/
+
+review-keystore.jks
+*.jks

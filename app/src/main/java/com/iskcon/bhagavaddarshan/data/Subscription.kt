@@ -38,6 +38,8 @@ data class Subscription(
     val razorpayQrId: String = "",
     val source: String = Source.COLLECTOR,
     val notes: String = "",
+    /** Epoch ms when 1-month WhatsApp expiry reminder was sent (0 = never). */
+    val expiryReminderSentAt: Long = 0L,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     object Status {

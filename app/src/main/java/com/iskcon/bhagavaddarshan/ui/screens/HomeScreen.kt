@@ -1,7 +1,9 @@
 package com.iskcon.bhagavaddarshan.ui.screens
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -10,18 +12,23 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AdminPanelSettings
+import androidx.compose.material.icons.filled.ImportContacts
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -37,6 +44,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.iskcon.bhagavaddarshan.data.Subscription
+import com.iskcon.bhagavaddarshan.ui.components.EmptyState
+import com.iskcon.bhagavaddarshan.ui.components.StaggeredEntrance
+import com.iskcon.bhagavaddarshan.ui.components.StatusChip
+import com.iskcon.bhagavaddarshan.ui.components.statusContainerColor
+import com.iskcon.bhagavaddarshan.ui.components.statusContentColor
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -93,9 +105,13 @@ fun HomeScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = onRegister) {
-                Icon(Icons.Default.Add, contentDescription = "New registration")
-            }
+            ExtendedFloatingActionButton(
+                onClick = onRegister,
+                icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                text = { Text("Register") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = androidx.compose.ui.graphics.Color.White
+            )
         }
     ) { padding ->
         Column(
@@ -110,13 +126,14 @@ fun HomeScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(bottom = 12.dp),
+                    shape = RoundedCornerShape(16.dp),
                     colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
                     )
                 ) {
                     Text(
                         paymentBanner,
-                        modifier = Modifier.padding(12.dp),
+                        modifier = Modifier.padding(14.dp),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -138,26 +155,28 @@ fun HomeScreen(
                         .clickable(onClick = onExpiring)
                 )
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(18.dp))
             Text(
                 "Recent registrations",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold
             )
-            Spacer(Modifier.height(8.dp))
+            Spacer(Modifier.height(10.dp))
             if (list.isEmpty()) {
-                Text(
-                    "Loading subscribers… or tap + to register.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
+                EmptyState(
+                    icon = Icons.Default.ImportContacts,
+                    title = "No registrations yet",
+                    subtitle = "Tap Register to add your first devotee."
                 )
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                    contentPadding = PaddingValues(bottom = 88.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    contentPadding = PaddingValues(bottom = com.iskcon.bhagavaddarshan.ui.components.ListBottomSafeGap + 72.dp)
                 ) {
-                    items(list, key = { it.id }) { item ->
-                        SubscriptionCard(item = item, onClick = { onOpen(item.id) })
+                    itemsIndexed(list, key = { _, it -> it.id }) { index, item ->
+                        StaggeredEntrance(index = index) {
+                            SubscriptionCard(item = item, onClick = { onOpen(item.id) })
+                        }
                     }
                 }
             }
@@ -169,11 +188,12 @@ fun HomeScreen(
 fun StatChip(label: String, value: String, modifier: Modifier = Modifier) {
     Card(
         modifier = modifier,
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(label, style = MaterialTheme.typography.labelLarge)
-            Text(value, style = MaterialTheme.typography.headlineLarge)
+            Text(label, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
+            Text(value, style = MaterialTheme.typography.headlineLarge, color = MaterialTheme.colorScheme.onPrimaryContainer)
         }
     }
 }
@@ -183,6 +203,7 @@ fun SubscriptionCard(item: Subscription, onClick: () -> Unit) {
     Card(
         onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -192,24 +213,51 @@ fun SubscriptionCard(item: Subscription, onClick: () -> Unit) {
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    item.name,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        Modifier
+                            .size(38.dp)
+                            .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            item.name.take(1).uppercase(),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                    Spacer(Modifier.width(10.dp))
+                    Text(
+                        item.name,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
                 Text(
                     "#${item.receiptNo}",
                     style = MaterialTheme.typography.labelLarge,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
+            Spacer(Modifier.height(6.dp))
+            Text("${item.phone} · ${item.planYears} yr · ₹${item.totalAmount}", style = MaterialTheme.typography.bodyMedium)
             Spacer(Modifier.height(4.dp))
-            Text("${item.phone} · ${item.planYears} yr · ₹${item.totalAmount}")
-            Text(
-                "Ends ${item.endDate} · ${item.status}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
-            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    "Ends ${item.endDate}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.65f)
+                )
+                Spacer(Modifier.width(8.dp))
+                StatusChip(
+                    text = item.status.toString(),
+                    containerColor = statusContainerColor(item.status.toString()),
+                    contentColor = statusContentColor(item.status.toString())
+                )
+            }
         }
     }
 }
+
+

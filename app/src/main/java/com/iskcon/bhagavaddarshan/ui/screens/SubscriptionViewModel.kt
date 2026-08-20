@@ -53,6 +53,22 @@ class SubscriptionViewModel(
      */
     fun setScope(agentId: Long?, isAdmin: Boolean) {
         _scope.value = ListScope(agentId = agentId, isAdmin = isAdmin)
+        viewModelScope.launch {
+            val aid = if (isAdmin) null else agentId
+            repository.refreshAll(agentId = aid)
+            repository.refreshPending(agentId = aid)
+            repository.refreshExpiring(30)
+        }
+    }
+
+    fun refreshLists() {
+        val scope = _scope.value
+        viewModelScope.launch {
+            val aid = if (scope.isAdmin) null else scope.agentId
+            repository.refreshAll(agentId = aid, query = _query.value)
+            repository.refreshPending(agentId = aid)
+            repository.refreshExpiring(30)
+        }
     }
 
     val subscriptions: StateFlow<List<Subscription>> =
@@ -83,6 +99,7 @@ class SubscriptionViewModel(
     private val _pendingTick = MutableStateFlow(0)
     fun refreshPending() {
         _pendingTick.value = _pendingTick.value + 1
+        refreshLists()
     }
 
     val expiring: StateFlow<List<Subscription>> =
@@ -111,6 +128,7 @@ class SubscriptionViewModel(
 
     fun setQuery(value: String) {
         _query.value = value
+        refreshLists()
     }
 
     fun updateForm(transform: (RegisterFormState) -> RegisterFormState) {

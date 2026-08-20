@@ -83,6 +83,38 @@ interface SubscriptionDao {
     @Query("SELECT * FROM subscriptions WHERE id = :id LIMIT 1")
     suspend fun getById(id: Long): Subscription?
 
+    @Query("SELECT * FROM subscriptions WHERE id = :id LIMIT 1")
+    fun observeById(id: Long): Flow<Subscription?>
+
+    @Query(
+        """
+        SELECT * FROM subscriptions
+        WHERE phone = :phone
+        ORDER BY
+          CASE status
+            WHEN 'active' THEN 0
+            WHEN 'expiring' THEN 1
+            WHEN 'pending_payment' THEN 2
+            ELSE 3
+          END,
+          createdAt DESC
+        LIMIT 1
+        """
+    )
+    suspend fun findLatestByPhone(phone: String): Subscription?
+
+    @Query(
+        """
+        SELECT * FROM subscriptions
+        WHERE endDate <= :beforeDate
+          AND endDate >= :fromDate
+          AND status IN ('active', 'expiring')
+          AND expiryReminderSentAt = 0
+        ORDER BY endDate ASC
+        """
+    )
+    suspend fun listNeedingExpiryReminder(fromDate: String, beforeDate: String): List<Subscription>
+
     @Query("SELECT COALESCE(MAX(receiptNo), 510556) FROM subscriptions")
     suspend fun maxReceiptNo(): Long
 

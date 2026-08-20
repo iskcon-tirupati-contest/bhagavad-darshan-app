@@ -6,22 +6,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val LightColors = lightColorScheme(
-    primary = Saffron,
+    primary = Marigold,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE0B2),
-    onPrimaryContainer = Ink,
-    secondary = Leaf,
+    primaryContainer = MarigoldContainer,
+    onPrimaryContainer = MarigoldDeep,
+    inversePrimary = MarigoldLight,
+    secondary = SacredGold,
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFC8E6C9),
-    onSecondaryContainer = Color(0xFF1B5E20),
-    background = Color(0xFFFFFBFE),
-    onBackground = Ink,
+    secondaryContainer = SacredGoldLight,
+    onSecondaryContainer = MarigoldDeep,
+    tertiary = TempleMaroon,
+    onTertiary = Color.White,
+    tertiaryContainer = TempleMaroonLight,
+    onTertiaryContainer = TempleMaroonDeep,
+    background = UxCream,
+    onBackground = UxInk,
     surface = Color.White,
     onSurface = Ink,
-    surfaceVariant = Color(0xFFF5F0EB),
-    onSurfaceVariant = Color(0xFF4A4035),
-    outline = Color(0xFFBDB0A0),
-    error = SoftRed
+    surfaceVariant = Color(0xFFF5EDE3),
+    onSurfaceVariant = InkSoft,
+    surfaceTint = Marigold,
+    outline = Outline,
+    outlineVariant = Color(0xFFEDE6DC),
+    error = SoftRed,
+    onError = Color.White,
+    errorContainer = SoftRedContainer,
+    onErrorContainer = Color(0xFF5C0F0F)
 )
 
 @Composable
@@ -31,6 +41,7 @@ fun BhagavadDarshanTheme(
     MaterialTheme(
         colorScheme = LightColors,
         typography = Typography,
+        shapes = AppShapes,
         content = content
     )
 }

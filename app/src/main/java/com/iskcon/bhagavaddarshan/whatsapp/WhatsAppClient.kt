@@ -36,7 +36,9 @@ class WhatsAppClient(
         phone: String,
         templateParams: List<String>,
         campaignName: String = defaultCampaign,
-        source: String = "bhagavad-darshan-app"
+        source: String = "bhagavad-darshan-app",
+        buttons: JSONArray = JSONArray(),
+        paramsFallbackValue: JSONObject? = null
     ): Result<String> = withContext(Dispatchers.IO) {
         runCatching {
             if (!isConfigured()) error("WhatsApp not configured")
@@ -50,10 +52,11 @@ class WhatsAppClient(
                 put("templateParams", JSONArray(templateParams))
                 put("source", source)
                 put("media", JSONObject())
-                put("buttons", JSONArray())
+                put("buttons", buttons)
                 put("carouselCards", JSONArray())
                 put("location", JSONObject())
                 put("attributes", JSONObject())
+                paramsFallbackValue?.let { put("paramsFallbackValue", it) }
             }
             val body = payload.toString().toRequestBody(JSON)
             val req = Request.Builder().url(apiUrl).post(body).build()
@@ -65,11 +68,61 @@ class WhatsAppClient(
         }
     }
 
-    suspend fun sendRegistration(phone: String, name: String, receipt: String, plan: String) =
+    /** MNV OTP template requires both the body value and URL-button value. */
+    suspend fun sendOtp(phone: String, code: String): Result<String> {
+        val buttons = JSONArray().put(
+            JSONObject().apply {
+                put("type", "button")
+                put("sub_type", "url")
+                put("index", 0)
+                put(
+                    "parameters",
+                    JSONArray().put(
+                        JSONObject().apply {
+                            put("type", "text")
+                            put("text", code)
+                        }
+                    )
+                )
+            }
+        )
+        return send(
+            phone = phone,
+            campaignName = defaultCampaign.ifBlank { "OTP" },
+            templateParams = listOf(code),
+            source = "new-landing-page form",
+            buttons = buttons,
+            paramsFallbackValue = JSONObject().put("FirstName", code)
+        )
+    }
+
+    suspend fun sendRegistration(
+        phone: String,
+        name: String,
+        receipt: String,
+        plan: String,
+        amount: String = "",
+        duration: String = "",
+        startMonth: String = "",
+        endDate: String = "",
+        address: String = ""
+    ) =
         send(
             phone = phone,
             campaignName = registrationCampaign.ifBlank { defaultCampaign },
-            templateParams = listOf(name, receipt, plan, "Bhagavad Darshan subscription confirmed"),
+            // Matches WABA template bd_subscription_success:
+            // {{1}} name {{2}} receipt {{3}} plan {{4}} amount
+            // {{5}} duration {{6}} startMonth {{7}} endDate {{8}} address
+            templateParams = listOf(
+                name,
+                receipt,
+                plan,
+                amount.ifBlank { "—" },
+                duration.ifBlank { plan },
+                startMonth.ifBlank { "—" },
+                endDate.ifBlank { "—" },
+                address.ifBlank { "—" }
+            ),
             source = "bd-registration"
         )
 

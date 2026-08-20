@@ -18,5 +18,7 @@ data class Agent(
     object Role {
         const val ADMIN = "admin"
         const val AGENT = "agent"
+        /** Session-only role for devotee login (not stored in agents table). */
+        const val CUSTOMER = "customer"
     }
 }
