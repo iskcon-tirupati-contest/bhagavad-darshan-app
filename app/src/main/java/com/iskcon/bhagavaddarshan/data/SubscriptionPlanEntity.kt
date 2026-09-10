@@ -21,7 +21,7 @@ data class SubscriptionPlanEntity(
     /** Map DB row to flyer enum (fallback by years when amounts differ). */
     fun toSubscriptionPlan(): SubscriptionPlan =
         SubscriptionPlan.entries.firstOrNull { it.years == years }
-            ?: SubscriptionPlan.ONE_YEAR
+            ?: SubscriptionPlan.TWELVE_MONTHS
 
     companion object {
         fun fromEnum(plan: SubscriptionPlan, sortOrder: Int = plan.years): SubscriptionPlanEntity =
@@ -31,7 +31,7 @@ data class SubscriptionPlanEntity(
                 postageAmount = plan.postageRupees,
                 giftBooks = plan.giftBooks,
                 labelTe = plan.labelEn,
-                active = plan.years != 4,
+                active = true,
                 sortOrder = sortOrder
             )
     }

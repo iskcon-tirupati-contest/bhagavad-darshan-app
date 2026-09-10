@@ -5,6 +5,10 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.LaunchedEffect
@@ -24,6 +28,7 @@ import androidx.navigation.navArgument
 import com.iskcon.bhagavaddarshan.payment.AgentPaymentMethod
 import com.iskcon.bhagavaddarshan.payment.CheckoutResult
 import com.iskcon.bhagavaddarshan.payment.CheckoutResultBus
+import com.iskcon.bhagavaddarshan.ui.components.AppUpdateGate
 import com.iskcon.bhagavaddarshan.ui.navigation.AppRoute
 import com.iskcon.bhagavaddarshan.ui.screens.CollectPaymentScreen
 import com.iskcon.bhagavaddarshan.ui.screens.DetailScreen
@@ -35,11 +40,15 @@ import com.iskcon.bhagavaddarshan.ui.screens.SubscriptionViewModel
 import com.iskcon.bhagavaddarshan.ui.screens.SubscriptionViewModelFactory
 import com.iskcon.bhagavaddarshan.ui.screens.admin.AdminAgentEditScreen
 import com.iskcon.bhagavaddarshan.ui.screens.customer.CustomerCheckoutScreen
+import com.iskcon.bhagavaddarshan.ui.screens.customer.CustomerShippingScreen
 import com.iskcon.bhagavaddarshan.ui.screens.customer.CustomerLanguage
+import com.iskcon.bhagavaddarshan.ui.screens.customer.CustomerCompleteProfileScreen
 import com.iskcon.bhagavaddarshan.ui.screens.customer.CustomerRegisterScreen
+import com.iskcon.bhagavaddarshan.ui.screens.agent.AddDevoteeScreen
 import com.iskcon.bhagavaddarshan.ui.screens.customer.PaymentSuccessScreen
 import com.iskcon.bhagavaddarshan.ui.navigation.CustomerTab
 import com.iskcon.bhagavaddarshan.ui.theme.BhagavadDarshanTheme
+import com.iskcon.bhagavaddarshan.util.UiSounds
 import com.razorpay.Checkout
 import com.razorpay.PaymentData
 import com.razorpay.PaymentResultWithDataListener
@@ -67,6 +76,7 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
         )
         val app = application as BhagavadDarshanApp
         Checkout.preload(applicationContext)
+        UiSounds.warmUp(applicationContext)
 
         setContent {
             BhagavadDarshanTheme {
@@ -98,11 +108,13 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
 
                 var successBanner by remember { mutableStateOf<Pair<String, String>?>(null) }
                 var openCustomerPlans by remember { mutableStateOf(false) }
+                var needsProfileComplete by remember { mutableStateOf(false) }
 
                 fun logout() {
                     app.session.logout()
                     loggedIn = false
                     openCustomerPlans = false
+                    needsProfileComplete = false
                     navController.navigate(AppRoute.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
@@ -116,6 +128,8 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                             sub.district, sub.pincode, sub.state
                         ).filter { it.isNotBlank() }.joinToString(", ")
                         val planLabel = when {
+                            sub.planYears >= 6 || sub.planMonths > 0 ->
+                                "${com.iskcon.bhagavaddarshan.data.planDurationMonths(sub.planYears, sub.planMonths)} month plan"
                             sub.planYears > 0 -> "${sub.planYears} year plan"
                             else -> "${sub.planMonths} month(s)"
                         }
@@ -138,23 +152,67 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                 }
 
                 Box(Modifier.fillMaxSize()) {
+                    // Prompt on login + every role (customer / agent / admin)
+                    AppUpdateGate(app = app)
                     NavHost(
                             navController = navController,
                             startDestination = if (loggedIn) AppRoute.Main.route else AppRoute.Login.route,
-                            modifier = Modifier.fillMaxSize()
+                            modifier = Modifier.fillMaxSize(),
+                            enterTransition = {
+                                slideIntoContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Left,
+                                    animationSpec = tween(320)
+                                ) + fadeIn(tween(220))
+                            },
+                            exitTransition = {
+                                slideOutOfContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Left,
+                                    animationSpec = tween(320)
+                                ) + fadeOut(tween(180))
+                            },
+                            popEnterTransition = {
+                                slideIntoContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Right,
+                                    animationSpec = tween(320)
+                                ) + fadeIn(tween(220))
+                            },
+                            popExitTransition = {
+                                slideOutOfContainer(
+                                    AnimatedContentTransitionScope.SlideDirection.Right,
+                                    animationSpec = tween(320)
+                                ) + fadeOut(tween(180))
+                            }
                         ) {
                             composable(AppRoute.Login.route) {
                                 LoginScreen(
                                     app = app,
-                                    onLoggedIn = {
+                                    onLoggedIn = { needsComplete ->
                                         loggedIn = true
                                         openCustomerPlans = false
-                                        navController.navigate(AppRoute.Main.route) {
-                                            popUpTo(AppRoute.Login.route) { inclusive = true }
+                                        needsProfileComplete = needsComplete
+                                        if (needsComplete) {
+                                            navController.navigate(AppRoute.CustomerCompleteProfile.route) {
+                                                popUpTo(AppRoute.Login.route) { inclusive = true }
+                                            }
+                                        } else {
+                                            navController.navigate(AppRoute.Main.route) {
+                                                popUpTo(AppRoute.Login.route) { inclusive = true }
+                                            }
                                         }
                                     },
                                     onRegister = {
                                         navController.navigate(AppRoute.CustomerRegister.route)
+                                    }
+                                )
+                            }
+                            composable(AppRoute.CustomerCompleteProfile.route) {
+                                CustomerCompleteProfileScreen(
+                                    app = app,
+                                    onComplete = {
+                                        needsProfileComplete = false
+                                        navController.navigate(AppRoute.Main.route) {
+                                            popUpTo(0) { inclusive = true }
+                                        }
                                     }
                                 )
                             }
@@ -187,25 +245,78 @@ class MainActivity : ComponentActivity(), PaymentResultWithDataListener {
                                         navController.navigate(AppRoute.AdminAgentNew.route)
                                     },
                                     onCustomerCheckout = { years ->
-                                        navController.navigate(AppRoute.CustomerCheckout.create(years))
+                                        navController.navigate(AppRoute.CustomerShipping.create(years))
                                     },
                                     onCustomerSeva = { kind, amountPaise, title ->
                                         navController.navigate(AppRoute.CustomerSeva.create(kind, amountPaise, title))
                                     },
-                                    initialCustomerTab = if (openCustomerPlans) CustomerTab.PLANS else CustomerTab.HOME
+                                    initialCustomerTab = if (openCustomerPlans) CustomerTab.PLANS else CustomerTab.HOME,
+                                    onAddDevotee = {
+                                        navController.navigate(AppRoute.AddDevotee.route)
+                                    },
+                                    onEditDevotee = { id ->
+                                        navController.navigate(AppRoute.EditDevotee.create(id))
+                                    }
+                                )
+                            }
+                            composable(AppRoute.AddDevotee.route) {
+                                AddDevoteeScreen(
+                                    app = app,
+                                    onBack = { navController.popBackStack() },
+                                    onBackToHome = {
+                                        navController.popBackStack(AppRoute.Main.route, inclusive = false)
+                                    }
+                                )
+                            }
+                            composable(
+                                route = AppRoute.EditDevotee.route,
+                                arguments = listOf(navArgument("id") { type = NavType.LongType })
+                            ) { entry ->
+                                val id = entry.arguments?.getLong("id") ?: return@composable
+                                AddDevoteeScreen(
+                                    app = app,
+                                    devoteeId = id,
+                                    onBack = { navController.popBackStack() },
+                                    onBackToHome = {
+                                        navController.popBackStack(AppRoute.Main.route, inclusive = false)
+                                    }
+                                )
+                            }
+                            composable(
+                                route = AppRoute.CustomerShipping.route,
+                                arguments = listOf(
+                                    navArgument("planYears") { type = NavType.IntType }
+                                )
+                            ) { entry ->
+                                val years = entry.arguments?.getInt("planYears") ?: 12
+                                CustomerShippingScreen(
+                                    planYears = years,
+                                    language = CustomerLanguage.fromStored(app.session.customerLanguage),
+                                    onBack = { navController.popBackStack() },
+                                    onContinue = { shippingPaise ->
+                                        navController.navigate(
+                                            AppRoute.CustomerCheckout.create(years, shippingPaise)
+                                        )
+                                    }
                                 )
                             }
                             composable(
                                 route = AppRoute.CustomerCheckout.route,
                                 arguments = listOf(
-                                    navArgument("planYears") { type = NavType.IntType }
+                                    navArgument("planYears") { type = NavType.IntType },
+                                    navArgument("shippingPaise") {
+                                        type = NavType.IntType
+                                        defaultValue = 0
+                                    }
                                 )
                             ) { entry ->
-                                val years = entry.arguments?.getInt("planYears") ?: 1
+                                val years = entry.arguments?.getInt("planYears") ?: 12
+                                val shippingPaise = entry.arguments?.getInt("shippingPaise") ?: 0
                                 CustomerCheckoutScreen(
                                     app = app,
                                     language = CustomerLanguage.fromStored(app.session.customerLanguage),
                                     planYears = years,
+                                    shippingPaise = shippingPaise,
                                     paymentReturnTick = paymentReturnTick,
                                     onBack = { navController.popBackStack() },
                                     onPaidSuccess = { detail ->

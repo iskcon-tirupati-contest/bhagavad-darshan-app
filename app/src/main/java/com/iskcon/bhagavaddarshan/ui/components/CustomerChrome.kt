@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -28,14 +29,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.iskcon.bhagavaddarshan.ui.theme.BdShape
+import com.iskcon.bhagavaddarshan.ui.theme.BdSpace
+import com.iskcon.bhagavaddarshan.ui.theme.BdType
+import com.iskcon.bhagavaddarshan.ui.theme.EditCard
+import com.iskcon.bhagavaddarshan.ui.theme.EditPopularBg
+import com.iskcon.bhagavaddarshan.ui.theme.EditPopularBorder
+import com.iskcon.bhagavaddarshan.ui.theme.EditTerracotta
 import com.iskcon.bhagavaddarshan.ui.theme.Inter
+import com.iskcon.bhagavaddarshan.ui.theme.Marigold
+import com.iskcon.bhagavaddarshan.ui.theme.Montserrat
 import com.iskcon.bhagavaddarshan.ui.theme.MotionSpecs
 import com.iskcon.bhagavaddarshan.ui.theme.TextPrimaryDark
 import com.iskcon.bhagavaddarshan.ui.theme.TextSecondaryDark
@@ -48,25 +61,56 @@ import com.iskcon.bhagavaddarshan.ui.theme.UxSaffron
 import com.iskcon.bhagavaddarshan.ui.theme.UxSaffronDark
 import com.iskcon.bhagavaddarshan.ui.theme.UxSoftShadow
 
-private val CardShape = RoundedCornerShape(24.dp)
-private val ButtonShape = RoundedCornerShape(16.dp)
+private val ButtonShape = BdShape.Button
 
 @Composable
-fun AnimatedCard(
+fun CustomerPageHeader(
+    title: String,
+    subtitle: String? = null,
+    eyebrow: String? = null,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier.fillMaxWidth()) {
+        if (!eyebrow.isNullOrBlank()) {
+            Text(text = eyebrow, style = BdType.Eyebrow)
+            Spacer(Modifier.height(8.dp))
+        }
+        Text(text = title, style = BdType.PageTitle)
+        if (!subtitle.isNullOrBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(text = subtitle, style = BdType.PageSubtitle)
+        }
+    }
+}
+
+/**
+ * Standard customer surface card — soft warm border, light shadow, optional selected state.
+ */
+@Composable
+fun BdCard(
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
-    borderGlow: Boolean = false,
-    corner: Dp = 24.dp,
+    selected: Boolean = false,
+    highlighted: Boolean = false,
+    contentPadding: Dp = BdSpace.CardPad,
     content: @Composable ColumnScope.() -> Unit
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
     val scale by animateFloatAsState(
-        targetValue = if (isPressed) 0.98f else 1.0f,
+        targetValue = if (isPressed && onClick != null) 0.985f else 1.0f,
         animationSpec = MotionSpecs.TactileSpring,
-        label = "cardScale"
+        label = "bdCardScale"
     )
-    val shape = RoundedCornerShape(corner)
+    val shape = BdShape.Card
+    val borderColor = when {
+        selected || highlighted -> EditPopularBorder
+        else -> UxGold200
+    }
+    val bg = when {
+        selected || highlighted -> EditPopularBg
+        else -> EditCard
+    }
 
     Box(
         modifier = modifier
@@ -75,18 +119,18 @@ fun AnimatedCard(
                 scaleY = scale
             }
             .shadow(
-                elevation = 10.dp,
+                elevation = if (selected) 6.dp else 3.dp,
                 shape = shape,
                 spotColor = UxSoftShadow,
-                ambientColor = UxGold200
+                ambientColor = UxGold200.copy(alpha = 0.35f)
             )
             .border(
-                width = if (borderGlow) 2.dp else 1.dp,
-                color = if (borderGlow) UxSaffron else UxGold200,
+                width = if (selected) 1.6.dp else 1.dp,
+                color = borderColor,
                 shape = shape
             )
             .clip(shape)
-            .background(Color.White)
+            .background(bg)
             .then(
                 if (onClick != null) {
                     Modifier.clickable(
@@ -96,10 +140,66 @@ fun AnimatedCard(
                     )
                 } else Modifier
             )
-            .padding(18.dp)
+            .padding(contentPadding)
     ) {
-        Column { content() }
+        Column(content = content)
     }
+}
+
+@Composable
+fun SoftOutlinedButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val isPressed by interactionSource.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (isPressed) 0.98f else 1f,
+        animationSpec = MotionSpecs.TactileSpring,
+        label = "outlineBtn"
+    )
+    Box(
+        modifier = modifier
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(BdShape.Button)
+            .border(1.4.dp, EditTerracotta.copy(alpha = 0.55f), BdShape.Button)
+            .background(Color.Transparent)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                onClick = onClick
+            )
+            .padding(vertical = 14.dp, horizontal = 16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            style = BdType.Button,
+            color = EditTerracotta,
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+@Composable
+fun AnimatedCard(
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
+    borderGlow: Boolean = false,
+    corner: Dp = 20.dp,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    BdCard(
+        modifier = modifier,
+        onClick = onClick,
+        selected = borderGlow,
+        contentPadding = 18.dp,
+        content = content
+    )
 }
 
 @Composable
@@ -110,7 +210,9 @@ fun EmergedButton(
     enabled: Boolean = true,
     gradient: List<Color> = listOf(UxSaffron, UxSaffronDark),
     textColor: Color = Color.White,
-    verticalPadding: Dp = 14.dp
+    verticalPadding: Dp = 14.dp,
+    fontSize: TextUnit = 16.sp,
+    horizontalPadding: Dp = 20.dp
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val isPressed by interactionSource.collectIsPressedAsState()
@@ -120,6 +222,9 @@ fun EmergedButton(
         label = "emergedScale"
     )
     val fill = gradient.firstOrNull() ?: UxSaffron
+    val fillBrush = Brush.horizontalGradient(
+        colors = if (gradient.size >= 2) gradient else listOf(fill, fill)
+    )
 
     Box(
         modifier = modifier
@@ -131,27 +236,28 @@ fun EmergedButton(
             .shadow(
                 elevation = if (isPressed) 2.dp else 8.dp,
                 shape = ButtonShape,
-                spotColor = UxSaffron.copy(alpha = 0.35f),
-                ambientColor = UxSaffron.copy(alpha = 0.18f)
+                spotColor = fill.copy(alpha = 0.35f),
+                ambientColor = fill.copy(alpha = 0.18f)
             )
             .clip(ButtonShape)
-            .background(fill)
+            .background(fillBrush)
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
                 enabled = enabled,
                 onClick = onClick
             )
-            .padding(vertical = verticalPadding, horizontal = 20.dp),
+            .padding(vertical = verticalPadding, horizontal = horizontalPadding),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
-            fontFamily = Inter,
-            fontSize = 15.sp,
+            fontFamily = Montserrat,
+            fontSize = fontSize,
             fontWeight = FontWeight.Bold,
             color = textColor,
-            letterSpacing = 0.3.sp
+            letterSpacing = 0.2.sp,
+            maxLines = 1
         )
     }
 }
@@ -247,7 +353,7 @@ fun PaymentMethodRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontFamily = Inter, fontWeight = FontWeight.Bold, fontSize = 14.sp, color = UxInk)
             if (!subtitle.isNullOrBlank()) {
-                Text(subtitle, fontFamily = Inter, fontSize = 10.sp, color = TextSecondaryDark)
+                Text(subtitle, fontFamily = Inter, fontSize = 13.sp, color = TextSecondaryDark)
             }
         }
         Icon(
@@ -260,15 +366,19 @@ fun PaymentMethodRow(
 
 @Composable
 fun customerFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedBorderColor = UxSaffron,
-    unfocusedBorderColor = UxGold200,
-    focusedLabelColor = UxGold500,
+    focusedBorderColor = Marigold,
+    unfocusedBorderColor = Marigold.copy(alpha = 0.78f),
+    focusedLabelColor = Marigold,
     unfocusedLabelColor = TextSecondaryDark,
-    cursorColor = UxSaffron,
+    cursorColor = Marigold,
     focusedTextColor = TextPrimaryDark,
     unfocusedTextColor = TextPrimaryDark,
     focusedContainerColor = Color.White,
-    unfocusedContainerColor = UxGold100.copy(alpha = 0.35f),
+    unfocusedContainerColor = Color.White,
     focusedPlaceholderColor = TextSecondaryDark,
-    unfocusedPlaceholderColor = TextSecondaryDark
+    unfocusedPlaceholderColor = TextSecondaryDark,
+    disabledBorderColor = Marigold.copy(alpha = 0.55f),
+    disabledTextColor = TextPrimaryDark,
+    disabledLabelColor = TextSecondaryDark,
+    disabledContainerColor = Color(0xFFF7F3EA)
 )

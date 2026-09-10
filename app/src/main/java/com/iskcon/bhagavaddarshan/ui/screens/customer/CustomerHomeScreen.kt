@@ -28,6 +28,8 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.Logout
 import androidx.compose.material3.AlertDialog
@@ -62,10 +64,13 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.iskcon.bhagavaddarshan.BhagavadDarshanApp
 import com.iskcon.bhagavaddarshan.R
+import com.iskcon.bhagavaddarshan.data.planDisplayLabel
+import com.iskcon.bhagavaddarshan.data.planDurationMonths
 import com.iskcon.bhagavaddarshan.network.BdApi
 import com.iskcon.bhagavaddarshan.ui.components.EmergedButton
 import com.iskcon.bhagavaddarshan.ui.components.customerFieldColors
 import com.iskcon.bhagavaddarshan.ui.theme.EditCard
+import com.iskcon.bhagavaddarshan.ui.theme.DevoteeTeal
 import com.iskcon.bhagavaddarshan.ui.theme.EditChocolate
 import com.iskcon.bhagavaddarshan.ui.theme.EditCream
 import com.iskcon.bhagavaddarshan.ui.theme.EditMint
@@ -81,6 +86,14 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+
+private data class PlanSegmentUi(
+    val id: Long,
+    val planYears: Int,
+    val planMonths: Int,
+    val endDate: LocalDate?,
+    val status: String
+)
 
 private data class DonationPack(
     val label: String,
@@ -99,7 +112,7 @@ private val donationPacks = listOf(
 fun CustomerHomeScreen(
     app: BhagavadDarshanApp,
     language: CustomerLanguage = CustomerLanguage.ENGLISH,
-    onLogout: () -> Unit,
+    @Suppress("UNUSED_PARAMETER") onLogout: () -> Unit,
     onRenew: () -> Unit,
     onBookPlan: () -> Unit,
     @Suppress("UNUSED_PARAMETER") onProfile: () -> Unit = {},
@@ -108,24 +121,33 @@ fun CustomerHomeScreen(
     onBuyBook: (SacredBook) -> Unit = {}
 ) {
     val api = remember { BdApi() }
-    var sub by remember { mutableStateOf<JSONObject?>(null) }
+    var planSegments by remember { mutableStateOf<List<JSONObject>>(emptyList()) }
+    var planCardIndex by remember { mutableIntStateOf(0) }
     var showDonationDialog by remember { mutableStateOf(false) }
     var selectedDonationLabel by remember { mutableStateOf(donationPacks.first().label) }
     var selectedDonationAmount by remember { mutableIntStateOf(donationPacks.first().amountRupees) }
     var customGitaCount by remember { mutableStateOf("") }
     var useCustomDonation by remember { mutableStateOf(false) }
-    var showLogoutConfirm by remember { mutableStateOf(false) }
     val bookListState = rememberLazyListState()
 
     LaunchedEffect(app.session.authToken) {
         val token = app.session.authToken
         if (token.isBlank()) return@LaunchedEffect
         api.getMe(token).onSuccess { json ->
-            val s = json.optJSONObject("subscription")
-            sub = s
-            if (s != null) {
+            val arr = json.optJSONArray("subscriptions")
+            val list = buildList {
+                if (arr != null) {
+                    for (i in 0 until arr.length()) add(arr.getJSONObject(i))
+                } else {
+                    json.optJSONObject("subscription")?.let { add(it) }
+                }
+            }
+            planSegments = list
+            planCardIndex = 0
+            val latest = list.firstOrNull()
+            if (latest != null) {
                 app.session.bindSubscription(
-                    s.optLong("id"),
+                    latest.optLong("id"),
                     json.optJSONObject("customer")?.optString("name")
                 )
             }
@@ -144,69 +166,50 @@ fun CustomerHomeScreen(
     }
 
     val today = remember { LocalDate.now() }
-    val endDate = remember(sub?.optString("end_date")) {
-        sub?.optString("end_date")?.takeIf { it.length >= 10 }?.let { raw ->
-            runCatching { LocalDate.parse(raw.take(10)) }.getOrNull()
-        }
-    }
-    val daysLeft = remember(endDate) {
-        endDate?.let { ChronoUnit.DAYS.between(today, it).coerceAtLeast(0) }
-    }
-    val status = sub?.optString("status").orEmpty()
-    val active = status.equals("active", true) || (daysLeft != null && daysLeft > 0)
-    val name = app.session.agentName.ifBlank { "Devotee" }
-    val planYears = sub?.optInt("plan_years") ?: 0
-    val totalPlanDays = (planYears * 365).coerceAtLeast(365)
-    val elapsedFraction = remember(endDate, planYears, daysLeft) {
-        if (endDate == null) 0f else {
-            val startDate = sub?.optString("start_date")?.takeIf { it.length >= 10 }?.let {
-                runCatching { LocalDate.parse(it.take(10)) }.getOrNull()
-            } ?: endDate.minusDays(totalPlanDays.toLong())
-            val total = ChronoUnit.DAYS.between(startDate, endDate).coerceAtLeast(1)
-            val elapsed = ChronoUnit.DAYS.between(startDate, today).coerceIn(0, total)
-            (elapsed.toFloat() / total.toFloat()).coerceIn(0f, 1f)
-        }
-    }
-    val endDateLabel = remember(endDate) {
-        endDate?.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)).orEmpty()
-    }
-    val planLine = if (planYears > 0) "$planYears Year Plan" else "Magazine Plan"
-
-    if (showLogoutConfirm) {
-        AlertDialog(
-            onDismissRequest = { showLogoutConfirm = false },
-            title = {
-                Text(
-                    tr(language, "Confirm logout", "లాగౌట్ నిర్ధారించండి"),
-                    fontFamily = PlayfairDisplay,
-                    fontWeight = FontWeight.Bold,
-                    color = EditChocolate
-                )
-            },
-            text = {
-                Text(
-                    tr(language, "Do you want to logout now?", "ఇప్పుడు లాగౌట్ కావాలా?"),
-                    fontFamily = Inter,
-                    color = EditMuted
-                )
-            },
-            dismissButton = {
-                TextButton(onClick = { showLogoutConfirm = false }) {
-                    Text(tr(language, "Cancel", "రద్దు"), color = EditMuted)
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        showLogoutConfirm = false
-                        onLogout()
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = EditTerracotta)
-                ) {
-                    Text(tr(language, "Logout", "లాగౌట్"))
-                }
+    val parsedSegments = remember(planSegments) {
+        planSegments.mapNotNull { s ->
+            val end = s.optString("end_date").takeIf { it.length >= 10 }?.let { raw ->
+                runCatching { LocalDate.parse(raw.take(10)) }.getOrNull()
             }
-        )
+            PlanSegmentUi(
+                id = s.optLong("id"),
+                planYears = s.optInt("plan_years").takeIf { it > 0 } ?: s.optInt("planYears"),
+                planMonths = s.optInt("plan_months").takeIf { it > 0 } ?: s.optInt("planMonths"),
+                endDate = end,
+                status = s.optString("status")
+            )
+        }
+    }
+    val mainSegment = parsedSegments.firstOrNull()
+    val coverageEnd = parsedSegments.mapNotNull { it.endDate }.maxOrNull()
+    val visibleSegment = parsedSegments.getOrNull(planCardIndex.coerceIn(0, (parsedSegments.size - 1).coerceAtLeast(0)))
+    val isMainCard = planCardIndex == 0
+    val displayEnd = if (isMainCard) coverageEnd else visibleSegment?.endDate
+    val monthsLeft = displayEnd?.let {
+        ChronoUnit.MONTHS.between(today.withDayOfMonth(1), it.withDayOfMonth(1)).coerceAtLeast(0)
+    }
+    val status = visibleSegment?.status.orEmpty()
+    val active = status.equals("active", true) || (monthsLeft != null && monthsLeft > 0) ||
+        (displayEnd != null && !displayEnd.isBefore(today))
+    val name = app.session.agentName.ifBlank { "Devotee" }
+    val planYears = visibleSegment?.planYears ?: 0
+    val planMonthsSpan = planDurationMonths(planYears, visibleSegment?.planMonths ?: 0)
+    val endDateLabel = remember(displayEnd) {
+        displayEnd?.format(DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)).orEmpty()
+    }
+    val planLine = planDisplayLabel(planYears, visibleSegment?.planMonths ?: 0)
+    val carryOverMonths = remember(parsedSegments, today, coverageEnd, mainSegment) {
+        if (parsedSegments.size <= 1 || coverageEnd == null || mainSegment?.endDate == null) 0L
+        else {
+            val othersMax = parsedSegments.drop(1).mapNotNull { it.endDate }.maxOrNull()
+            if (othersMax == null) 0L
+            else ChronoUnit.MONTHS.between(today.withDayOfMonth(1), othersMax.withDayOfMonth(1)).coerceAtLeast(0)
+        }
+    }
+    val elapsedFraction = remember(displayEnd, monthsLeft, planMonthsSpan, carryOverMonths) {
+        val left = monthsLeft ?: return@remember 0f
+        val span = (planMonthsSpan + carryOverMonths.toInt()).coerceAtLeast(left.toInt()).toFloat().coerceAtLeast(1f)
+        (1f - (left.toFloat() / span)).coerceIn(0f, 1f)
     }
 
     if (showDonationDialog) {
@@ -338,161 +341,231 @@ fun CustomerHomeScreen(
         ) {
             item {
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(18.dp))
+                        .background(DevoteeTeal)
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
+                    AsyncImage(
+                        model = CustomerCatalog.HOME_EMBLEM,
+                        contentDescription = "Tilak",
+                        contentScale = ContentScale.Fit,
                         modifier = Modifier
-                            .weight(1f)
-                            .padding(end = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        AsyncImage(
-                            model = CustomerCatalog.HOME_EMBLEM,
-                            contentDescription = "Tilak",
-                            contentScale = ContentScale.Fit,
-                            modifier = Modifier
-                                .width(28.dp)
-                                .height(58.dp)
+                            .width(28.dp)
+                            .height(52.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            tr(language, "Hare Krishna,", "హరే కృష్ణ,"),
+                            fontFamily = Inter,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            letterSpacing = 1.2.sp,
+                            color = Color.White.copy(alpha = 0.92f)
                         )
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(
-                                tr(language, "HARE KRISHNA,", "హరే కృష్ణ,"),
-                                fontFamily = Inter,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 10.sp,
-                                letterSpacing = 1.4.sp,
-                                color = EditTerracotta
-                            )
-                            Text(
-                                name,
-                                fontFamily = PlayfairDisplay,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 20.sp,
-                                color = EditChocolate
-                            )
-                        }
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(42.dp)
-                            .clip(CircleShape)
-                            .background(EditPeach)
-                            .clickable { showLogoutConfirm = true },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Logout,
-                            contentDescription = tr(language, "Logout", "లాగౌట్"),
-                            tint = EditTerracotta
+                        Text(
+                            name,
+                            fontFamily = PlayfairDisplay,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            color = Color.White
                         )
                     }
                 }
             }
 
             item {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .shadow(8.dp, RoundedCornerShape(24.dp), spotColor = Color(0x22000000))
-                        .clip(RoundedCornerShape(24.dp))
-                        .border(1.dp, EditTerracotta.copy(alpha = 0.35f), RoundedCornerShape(24.dp))
-                        .background(EditCard)
-                        .padding(20.dp)
-                ) {
-                    if (sub == null) {
-                        Text(
-                            tr(language, "Spiritual Wisdom at Your Doorstep", "ఆధ్యాత్మిక జ్ఞానం మీ ఇంటి ముందుకు"),
-                            fontFamily = PlayfairDisplay,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp,
-                            color = EditChocolate
-                        )
-                        Spacer(Modifier.height(8.dp))
-                        Text(
-                            tr(language, "Subscribe to Bhagavad Darshan and receive the magazine at home every month.", "భగవద్ దర్శన్ సభ్యత్వం తీసుకుని ప్రతి నెల పత్రికను ఇంటికి పొందండి."),
-                            fontFamily = Inter,
-                            fontSize = 14.sp,
-                            color = EditMuted
-                        )
-                        Spacer(Modifier.height(16.dp))
-                        EditorialButton(tr(language, "Choose a plan", "ప్లాన్ ఎంచుకోండి"), onClick = onBookPlan)
-                    } else {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    if (parsedSegments.size > 1) {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            PlanLineText(planLine = planLine)
-                            Box(
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFFDDF8E4))
-                                    .padding(horizontal = 10.dp, vertical = 4.dp)
+                                    .clickable(enabled = planCardIndex > 0) {
+                                        if (planCardIndex > 0) planCardIndex -= 1
+                                    }
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                                    contentDescription = tr(language, "Previous plan", "మునుపటి ప్లాన్"),
+                                    tint = if (planCardIndex > 0) EditTerracotta else EditMuted.copy(alpha = 0.35f)
+                                )
+                                Text(
+                                    tr(language, "Prev", "మునుపటి"),
+                                    fontFamily = Inter,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (planCardIndex > 0) EditTerracotta else EditMuted.copy(alpha = 0.35f)
+                                )
+                            }
+                            Text(
+                                if (isMainCard)
+                                    tr(language, "Current plan", "ప్రస్తుత ప్లాన్")
+                                else
+                                    tr(language, "Earlier plan", "మునుపటి ప్లాన్"),
+                                fontFamily = Inter,
+                                fontSize = 15.sp,
+                                color = EditMuted
+                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .clickable(enabled = planCardIndex < parsedSegments.lastIndex) {
+                                        if (planCardIndex < parsedSegments.lastIndex) planCardIndex += 1
+                                    }
+                                    .padding(horizontal = 6.dp, vertical = 4.dp)
                             ) {
                                 Text(
-                                    if (active) tr(language, "ACTIVE", "యాక్టివ్") else tr(language, "PENDING", "పెండింగ్"),
+                                    tr(language, "Next", "తదుపరి"),
                                     fontFamily = Inter,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color(0xFF198C37)
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = if (planCardIndex < parsedSegments.lastIndex) EditTerracotta else EditMuted.copy(alpha = 0.35f)
+                                )
+                                Icon(
+                                    Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                    contentDescription = tr(language, "Next plan", "తదుపరి ప్లాన్"),
+                                    tint = if (planCardIndex < parsedSegments.lastIndex) EditTerracotta else EditMuted.copy(alpha = 0.35f)
                                 )
                             }
                         }
-                        Spacer(Modifier.height(14.dp))
-                        Text(
-                            "${daysLeft ?: 0} ${tr(language, "Days", "రోజులు")}",
-                            fontFamily = PlayfairDisplay,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 30.sp,
-                            color = EditChocolate
-                        )
-                        Text(
-                            tr(language, "remaining in your subscription", "మీ సభ్యత్వంలో మిగిలినవి"),
-                            fontFamily = Inter,
-                            fontSize = 13.sp,
-                            color = EditMuted
-                        )
-                        Spacer(Modifier.height(14.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .shadow(4.dp, RoundedCornerShape(22.dp), spotColor = Color(0x18000000))
+                            .clip(RoundedCornerShape(22.dp))
+                            .border(1.dp, Color(0xFFE8DDD0), RoundedCornerShape(22.dp))
+                            .background(EditCard)
+                            .padding(18.dp)
+                    ) {
+                        if (mainSegment == null) {
                             Text(
-                                tr(language, "Expires on", "ముగిసే తేదీ"),
-                                fontFamily = Inter,
-                                fontSize = 13.sp,
-                                color = EditMuted
-                            )
-                            Text(
-                                endDateLabel.ifBlank { "--" },
-                                fontFamily = Inter,
-                                fontSize = 16.sp,
+                                tr(language, "Spiritual Wisdom at Your Doorstep", "ఆధ్యాత్మిక జ్ఞానం మీ ఇంటి ముందుకు"),
+                                fontFamily = PlayfairDisplay,
                                 fontWeight = FontWeight.Bold,
+                                fontSize = 22.sp,
                                 color = EditChocolate
                             )
-                        }
-                        Spacer(Modifier.height(10.dp))
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(6.dp)
-                                .clip(RoundedCornerShape(999.dp))
-                                .background(EditPeach)
-                        ) {
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                tr(language, "Subscribe to Bhagavad Darshan and receive the magazine at home every month.", "భగవద్ దర్శన్ సభ్యత్వం తీసుకుని ప్రతి నెల పత్రికను ఇంటికి పొందండి."),
+                                fontFamily = Inter,
+                                fontSize = 16.sp,
+                                color = EditMuted
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            EditorialButton(tr(language, "Choose a plan", "ప్లాన్ ఎంచుకోండి"), onClick = onBookPlan)
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                PlanLineText(planLine = planLine)
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(if (isMainCard) Color(0xFFDDF8E4) else EditPeach)
+                                        .padding(horizontal = 10.dp, vertical = 4.dp)
+                                ) {
+                                    Text(
+                                        when {
+                                            isMainCard && active -> tr(language, "CURRENT", "ప్రస్తుతం")
+                                            isMainCard -> tr(language, "PENDING", "పెండింగ్")
+                                            else -> tr(language, "CARRY-OVER", "మిగిలినది")
+                                        },
+                                        fontFamily = Inter,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (isMainCard) Color(0xFF198C37) else EditTerracotta
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            Text(
+                                "${monthsLeft ?: 0} ${tr(language, "Months", "నెలలు")}",
+                                fontFamily = PlayfairDisplay,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 30.sp,
+                                color = EditChocolate
+                            )
+                            Text(
+                                if (isMainCard)
+                                    tr(language, "remaining in your subscription", "మీ సభ్యత్వంలో మిగిలినవి")
+                                else
+                                    tr(language, "left on this earlier plan", "ఈ మునుపటి ప్లాన్‌లో మిగిలినవి"),
+                                fontFamily = Inter,
+                                fontSize = 15.sp,
+                                color = EditMuted
+                            )
+                            if (isMainCard && carryOverMonths > 0) {
+                                Spacer(Modifier.height(6.dp))
+                                Text(
+                                    tr(
+                                        language,
+                                        "Includes $carryOverMonths carry-over months from earlier plans · coverage through $endDateLabel",
+                                        "మునుపటి ప్లాన్‌ల నుండి $carryOverMonths నెలలు కలిపి · $endDateLabel వరకు కవరేజ్"
+                                    ),
+                                    fontFamily = Inter,
+                                    fontSize = 15.sp,
+                                    color = EditTerracotta
+                                )
+                            }
+                            Spacer(Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    tr(language, "Expires on", "ముగిసే తేదీ"),
+                                    fontFamily = Inter,
+                                    fontSize = 15.sp,
+                                    color = EditMuted
+                                )
+                                Text(
+                                    endDateLabel.ifBlank { "--" },
+                                    fontFamily = Inter,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = EditChocolate
+                                )
+                            }
+                            Spacer(Modifier.height(10.dp))
                             Box(
                                 modifier = Modifier
-                                    .fillMaxWidth(elapsedFraction)
+                                    .fillMaxWidth()
                                     .height(6.dp)
                                     .clip(RoundedCornerShape(999.dp))
-                                    .background(EditTerracotta)
-                            )
+                                    .background(EditPeach)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth(elapsedFraction)
+                                        .height(6.dp)
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(EditTerracotta)
+                                )
+                            }
+                            if (isMainCard) {
+                                Spacer(Modifier.height(16.dp))
+                                EditorialButton(tr(language, "Renew my plan", "నా ప్లాన్ రిన్యూ చేయండి"), onClick = onRenew)
+                            }
                         }
-                        Spacer(Modifier.height(16.dp))
-                        EditorialButton(tr(language, "Renew my plan", "నా ప్లాన్ రిన్యూ చేయండి"), onClick = onRenew)
                     }
                 }
             }
@@ -529,7 +602,7 @@ fun CustomerHomeScreen(
                         Text(
                             CustomerCatalog.LATEST_ISSUE_LABEL.uppercase(),
                             fontFamily = Inter,
-                            fontSize = 11.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 0.8.sp,
                             color = EditTerracotta
@@ -546,7 +619,7 @@ fun CustomerHomeScreen(
                         Text(
                             CustomerCatalog.LATEST_ISSUE_BLURB,
                             fontFamily = Inter,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             color = EditMuted,
                             maxLines = 3,
                             overflow = TextOverflow.Ellipsis
@@ -555,7 +628,7 @@ fun CustomerHomeScreen(
                         Text(
                             tr(language, "SHIPPED TO YOUR HOME", "మీ ఇంటికి పంపబడుతుంది"),
                             fontFamily = Inter,
-                            fontSize = 11.sp,
+                            fontSize = 14.sp,
                             fontWeight = FontWeight.Bold,
                             color = EditMintText
                         )
@@ -579,7 +652,7 @@ fun CustomerHomeScreen(
                     Text(
                         tr(language, "Swipe", "స్వైప్"),
                         fontFamily = Inter,
-                        fontSize = 12.sp,
+                        fontSize = 15.sp,
                         color = EditMuted
                     )
                 }
@@ -587,6 +660,7 @@ fun CustomerHomeScreen(
                 LazyRow(
                     state = bookListState,
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(end = 48.dp),
                     modifier = Modifier.height(310.dp)
                 ) {
                     items(CustomerCatalog.books, key = { it.title }) { book ->
@@ -614,7 +688,7 @@ fun CustomerHomeScreen(
                             Text(
                                 tr(language, "SEVA OPPORTUNITY", "సేవా అవకాశం"),
                                 fontFamily = Inter,
-                                fontSize = 11.sp,
+                                fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                                 letterSpacing = 1.2.sp,
                                 color = EditTerracotta
@@ -633,7 +707,7 @@ fun CustomerHomeScreen(
                     Text(
                         "Sponsor Bhagavad Gitas for students and seekers. Your donation helps spread divine wisdom to everyone.",
                         fontFamily = Inter,
-                        fontSize = 14.sp,
+                        fontSize = 16.sp,
                         color = EditMuted
                     )
                     Spacer(Modifier.height(18.dp))
@@ -641,8 +715,8 @@ fun CustomerHomeScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Image(
-                            painter = painterResource(R.drawable.lord_krishna_standing),
+                        AsyncImage(
+                            model = CustomerCatalog.LORD_KRISHNA,
                             contentDescription = "Lord Krishna",
                             modifier = Modifier
                                 .width(168.dp)
@@ -665,7 +739,7 @@ fun CustomerHomeScreen(
                             Text(
                                 "\u2014 Bhagavad Gita 18.68",
                                 fontFamily = Inter,
-                                fontSize = 12.sp,
+                                fontSize = 15.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = EditTerracotta
                             )
@@ -729,7 +803,7 @@ private fun EditorialBookCard(book: SacredBook, onBuy: () -> Unit) {
             book.title,
             fontFamily = PlayfairDisplay,
             fontWeight = FontWeight.Bold,
-            fontSize = 14.sp,
+            fontSize = 16.sp,
             color = EditChocolate,
             minLines = 2,
             maxLines = 2,
@@ -738,7 +812,7 @@ private fun EditorialBookCard(book: SacredBook, onBuy: () -> Unit) {
         Text(
             book.subtitle,
             fontFamily = Inter,
-            fontSize = 10.sp,
+            fontSize = 13.sp,
             color = EditMuted,
             maxLines = 1
         )
@@ -748,14 +822,16 @@ private fun EditorialBookCard(book: SacredBook, onBuy: () -> Unit) {
             fontFamily = Inter,
             fontWeight = FontWeight.Bold,
             color = EditTerracotta,
-            fontSize = 14.sp
+            fontSize = 16.sp
         )
         Spacer(Modifier.height(6.dp))
         EmergedButton(
             text = "Buy now",
             onClick = onBuy,
             modifier = Modifier.fillMaxWidth(),
-            verticalPadding = 10.dp
+            verticalPadding = 9.dp,
+            horizontalPadding = 10.dp,
+            fontSize = 13.sp
         )
     }
 }

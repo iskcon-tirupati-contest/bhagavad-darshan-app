@@ -17,8 +17,11 @@ sealed class AppRoute(val route: String) {
     data object AdminAgentEdit : AppRoute("admin/agents/{id}") {
         fun create(id: Long) = "admin/agents/$id"
     }
-    data object CustomerCheckout : AppRoute("customer/checkout/{planYears}") {
-        fun create(planYears: Int) = "customer/checkout/$planYears"
+    data object CustomerShipping : AppRoute("customer/shipping/{planYears}") {
+        fun create(planYears: Int) = "customer/shipping/$planYears"
+    }
+    data object CustomerCheckout : AppRoute("customer/checkout/{planYears}/{shippingPaise}") {
+        fun create(planYears: Int, shippingPaise: Int = 0) = "customer/checkout/$planYears/$shippingPaise"
     }
     data object CustomerSeva : AppRoute("customer/seva/{kind}/{amountPaise}") {
         fun create(kind: String, amountPaise: Int, title: String): String {
@@ -27,6 +30,11 @@ sealed class AppRoute(val route: String) {
         }
     }
     data object CustomerRegister : AppRoute("customer/register")
+    data object AddDevotee : AppRoute("agent/add-devotee")
+    data object EditDevotee : AppRoute("agent/edit-devotee/{id}") {
+        fun create(id: Long) = "agent/edit-devotee/$id"
+    }
+    data object CustomerCompleteProfile : AppRoute("customer/complete-profile")
     data object PaymentSuccess : AppRoute("customer/success") {
         // detail passed via savedStateHandle / callback; route is simple
     }

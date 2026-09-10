@@ -53,7 +53,7 @@ class SubscriberSeedImporter(
                     state = o.optString("state").ifBlank { "Andhra Pradesh" },
                     phone = o.optString("phone").ifBlank { "0000000000" },
                     planYears = plan.years,
-                    planMonths = plan.years * 12,
+                    planMonths = plan.months,
                     magazineAmount = plan.magazineRupees,
                     postageAmount = plan.postageRupees,
                     totalAmount = plan.totalRupees,

@@ -1,10 +1,6 @@
 package com.iskcon.bhagavaddarshan.ui.screens
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -12,7 +8,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
@@ -21,11 +16,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
-import androidx.compose.material3.Button
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -43,13 +38,24 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.iskcon.bhagavaddarshan.BhagavadDarshanApp
-import com.iskcon.bhagavaddarshan.ui.components.CompactTopBar
+import com.iskcon.bhagavaddarshan.BuildConfig
+import com.iskcon.bhagavaddarshan.ui.components.AgentHeaderTitle
+import com.iskcon.bhagavaddarshan.ui.components.GradientTopBar
+import com.iskcon.bhagavaddarshan.ui.components.PressableOutlineButton
+import com.iskcon.bhagavaddarshan.ui.components.PressablePrimaryButton
 import com.iskcon.bhagavaddarshan.ui.components.SectionLabel
+import com.iskcon.bhagavaddarshan.ui.components.ShadowCard
+import com.iskcon.bhagavaddarshan.ui.theme.AgentGoldSheenBrush
+import com.iskcon.bhagavaddarshan.ui.theme.AgentHeroBrush
+import com.iskcon.bhagavaddarshan.ui.theme.Marigold
+import com.iskcon.bhagavaddarshan.ui.theme.TempleGreen
 import com.iskcon.bhagavaddarshan.util.FormValidators
+import com.iskcon.bhagavaddarshan.util.UiSounds
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -62,11 +68,13 @@ fun ProfileScreen(
     var name by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
     var address by remember { mutableStateOf("") }
-    var password by remember { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
-    var saved by remember { mutableStateOf(false) }
+    var showLogoutConfirm by remember { mutableStateOf(false) }
+    var showComplaint by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val agentId = app.session.agentId
+    val context = LocalContext.current
+    val focusManager = LocalFocusManager.current
 
     LaunchedEffect(agentId) {
         if (agentId <= 0L) return@LaunchedEffect
@@ -79,14 +87,58 @@ fun ProfileScreen(
         }
     }
 
+    if (showComplaint) {
+        com.iskcon.bhagavaddarshan.ui.screens.agent.AgentComplaintDialog(
+            app = app,
+            initialName = name,
+            initialPhone = phone,
+            onDismiss = { showComplaint = false }
+        )
+    }
+
+    if (showLogoutConfirm) {
+        AlertDialog(
+            onDismissRequest = { showLogoutConfirm = false },
+            title = { Text("🚪 Logout?", fontWeight = FontWeight.Bold) },
+            text = { Text("Do you want to logout now?") },
+            dismissButton = {
+                PressableOutlineButton(
+                    text = "Cancel",
+                    onClick = {
+                        UiSounds.click(context)
+                        showLogoutConfirm = false
+                    }
+                )
+            },
+            confirmButton = {
+                PressablePrimaryButton(
+                    text = "Logout",
+                    onClick = {
+                        UiSounds.click(context)
+                        showLogoutConfirm = false
+                        onLogout()
+                    }
+                )
+            }
+        )
+    }
+
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         topBar = {
-            CompactTopBar(
-                title = { Text("My profile", style = MaterialTheme.typography.titleMedium) },
+            GradientTopBar(
+                brush = AgentHeroBrush,
+                title = { AgentHeaderTitle(title = "👤 Profile") },
                 actions = {
-                    IconButton(onClick = onLogout) {
-                        Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
+                    IconButton(onClick = {
+                        UiSounds.click(context)
+                        showLogoutConfirm = true
+                    }) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.Logout,
+                            contentDescription = "Logout",
+                            tint = TempleGreen
+                        )
                     }
                 }
             )
@@ -103,7 +155,9 @@ fun ProfileScreen(
         ) {
             Box(
                 Modifier
-                    .size(84.dp)
+                    .size(92.dp)
+                    .background(AgentGoldSheenBrush, CircleShape)
+                    .padding(4.dp)
                     .background(MaterialTheme.colorScheme.primaryContainer, CircleShape),
                 contentAlignment = Alignment.Center
             ) {
@@ -115,100 +169,119 @@ fun ProfileScreen(
                 )
             }
             Text(
-                name.ifBlank { "Agent" },
+                "🙏 ${name.ifBlank { "Agent" }}",
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.SemiBold
             )
 
-            Card(
-                Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(20.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-            ) {
+            ShadowCard(modifier = Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    SectionLabel("Your details")
+                    SectionLabel("✨ Your details")
                     OutlinedTextField(
                         value = name,
-                        onValueChange = { name = it; error = null; saved = false },
+                        onValueChange = { name = it; error = null },
                         label = { Text("Name") },
                         leadingIcon = { Icon(Icons.Default.Person, null) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Marigold,
+                            unfocusedBorderColor = Marigold.copy(alpha = 0.75f)
+                        )
                     )
                     OutlinedTextField(
                         value = phone,
-                        onValueChange = {
-                            phone = it.filter(Char::isDigit).take(10)
-                            error = null
-                            saved = false
-                        },
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = false,
                         label = { Text("Mobile") },
+                        leadingIcon = { Icon(Icons.Default.Phone, null) },
+                        trailingIcon = { Icon(Icons.Default.Lock, contentDescription = "Locked") },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
+                        colors = OutlinedTextFieldDefaults.colors(
+                            disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                            disabledBorderColor = Marigold.copy(alpha = 0.55f),
+                            disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledLeadingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledTrailingIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                            disabledContainerColor = androidx.compose.ui.graphics.Color(0xFFF7F3EA)
+                        )
                     )
                     OutlinedTextField(
                         value = address,
-                        onValueChange = { address = it; saved = false },
+                        onValueChange = { address = it },
                         label = { Text("Address") },
+                        leadingIcon = { Icon(Icons.Default.Home, null) },
                         modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
-                    )
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it; error = null; saved = false },
-                        label = { Text("New password (optional)") },
-                        leadingIcon = { Icon(Icons.Default.Lock, null) },
-                        visualTransformation = PasswordVisualTransformation(),
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = MaterialTheme.colorScheme.primary)
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Marigold,
+                            unfocusedBorderColor = Marigold.copy(alpha = 0.75f)
+                        )
                     )
                 }
             }
 
-            AnimatedVisibility(visible = error != null, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                Text(error.orEmpty(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
-            }
-            AnimatedVisibility(visible = saved, enter = fadeIn() + expandVertically(), exit = fadeOut() + shrinkVertically()) {
-                Text("Saved", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)
+            error?.let {
+                Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium)
             }
 
-            Button(
+            PressablePrimaryButton(
+                text = "💾 Save profile",
                 onClick = {
-                    FormValidators.name(name)?.let { error = it; return@Button }
-                    FormValidators.phone(phone)?.let { error = it; return@Button }
-                    if (password.isNotBlank()) {
-                        FormValidators.password(password)?.let { error = it; return@Button }
+                    focusManager.clearFocus()
+                    FormValidators.name(name)?.let {
+                        error = it
+                        UiSounds.error(context)
+                        Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                        return@PressablePrimaryButton
                     }
                     scope.launch {
                         val body = JSONObject().apply {
                             put("name", name.trim())
-                            put("phone", phone)
                             put("address", address.trim())
-                            if (password.isNotBlank()) put("password", password)
                         }
                         val result = app.api.updateAgent(app.session.authToken, agentId, body)
                         result.fold(
                             onSuccess = {
                                 app.session.updateProfile(name.trim(), phone)
-                                saved = true
-                                password = ""
+                                focusManager.clearFocus()
+                                UiSounds.success(context)
+                                Toast.makeText(context, "Profile saved", Toast.LENGTH_SHORT).show()
                             },
-                            onFailure = { error = it.message ?: "Could not save profile" }
+                            onFailure = {
+                                val msg = it.message ?: "Could not save profile"
+                                error = msg
+                                UiSounds.error(context)
+                                Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+                            }
                         )
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(50.dp),
-                shape = RoundedCornerShape(16.dp)
-            ) {
-                Text("Save profile", style = MaterialTheme.typography.titleMedium)
-            }
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            PressableOutlineButton(
+                text = "📝 Register a complaint",
+                onClick = {
+                    UiSounds.click(context)
+                    showComplaint = true
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Text(
+                "💬 Use WhatsApp number for login & support",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Text(
+                "📦 Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

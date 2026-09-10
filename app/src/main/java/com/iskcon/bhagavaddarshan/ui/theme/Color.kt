@@ -4,17 +4,26 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 
 /** Editorial customer palette (active). Previous saffron/gold is in [UxPilotPalette]. */
-val EditCream = Color(0xFFFCF8F1)
+val EditCream = Color(0xFFFCF7F1)
 val EditTerracotta = Color(0xFFD36B1D)
 val EditTerracottaDark = Color(0xFFB85A16)
 val EditChocolate = Color(0xFF4A1A12)
-val EditMuted = Color(0xFF6F5B52)
+/** Secondary text — darkened for elder readability on cream (was #6F5B52). */
+val EditMuted = Color(0xFF3D2A22)
 val EditPeach = Color(0xFFFFF4E5)
 val EditPopularBg = Color(0xFFFFF8E7)
 val EditPopularBorder = Color(0xFFC9A227)
 val EditCard = Color(0xFFFFFBF6)
 val EditMint = Color(0xFFDCFCE7)
 val EditMintText = Color(0xFF166534)
+
+/** Soft teal for dashboard devotee greeting strip. */
+val DevoteeTeal = Color(0xFF0F766E)
+/** Formal temple green (from brand swatch) — nav accent. */
+val TempleGreen = Color(0xFF147547)
+/** Soft green-tinted cream for shared top/bottom chrome bars. */
+val ChromeBar = Color(0xFFEEF5F0)
+val ChromeBarBorder = Color(0xFFC5D9CC)
 
 val UxSaffron = EditTerracotta
 val UxSaffronDark = EditTerracottaDark
@@ -115,4 +124,22 @@ val TextSecondaryDark = UxInkMuted
 val GradientGold = EmergedButtonGradient
 val GradientDarkSurface = SkyGradient
 val GradientHeroCard = DonateCardGradient
+
+// ---- Premium Agent identity — deep emerald + warm gold jewel tones ----
+// Used for the Agent role's chrome (nav bar, hero header, FAB glow) so the
+// ~100k field agents get a distinct, premium-feeling surface vs customer/admin.
+val AgentEmeraldDeep = Color(0xFF063C2E)
+val AgentEmerald = Color(0xFF0B4F3F)
+val AgentEmeraldLight = Color(0xFF15806A)
+val AgentGold = Color(0xFFF0D78C)
+val AgentGoldDeep = Color(0xFFD9B95C)
+val AgentIvory = Color(0xFFFBF7EE)
+
+/** Soft green-tinted cream chrome — matches customer top/bottom bars. */
+val AgentHeroBrush = Brush.verticalGradient(
+    colors = listOf(ChromeBar, Color(0xFFF7FBF8), Color.White)
+)
+val AgentGoldSheenBrush = Brush.horizontalGradient(
+    colors = listOf(AgentGoldDeep, AgentGold)
+)
 

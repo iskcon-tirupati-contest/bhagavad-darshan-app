@@ -61,14 +61,16 @@ class BdApi(private val apiClient: ApiClient = ApiClient()) {
         testAmount: Boolean = BuildConfig.TEST_PAYMENTS,
         purpose: String = "subscription",
         amountPaise: Int? = null,
-        notes: String? = null
+        notes: String? = null,
+        shippingPaise: Int = 0
     ): Result<JSONObject> {
         val body = jsonOf(
             "planYears" to planYears,
             "subscriptionId" to subscriptionId?.takeIf { it > 0L },
             "purpose" to purpose,
             "amountPaise" to amountPaise,
-            "notes" to notes
+            "notes" to notes,
+            "shippingPaise" to shippingPaise
         )
         if (testAmount) body.put("testAmount", "1")
         return post("/v1/payments/orders", body, token)
@@ -128,6 +130,51 @@ class BdApi(private val apiClient: ApiClient = ApiClient()) {
         ),
         token
     )
+
+    /** Public agent support complaint (download / install / login issues). */
+    suspend fun submitAgentSupportComplaint(
+        name: String,
+        phone: String,
+        deviceModel: String,
+        issue: String,
+        otherDetails: String = ""
+    ): Result<JSONObject> = post(
+        "/v1/support/agent-complaint",
+        jsonOf(
+            "name" to name,
+            "phone" to phone,
+            "deviceModel" to deviceModel,
+            "issue" to issue,
+            "otherDetails" to otherDetails.takeIf { it.isNotBlank() }
+        )
+    )
+
+    suspend fun listAdminComplaints(
+        token: String,
+        q: String = "",
+        status: String? = null,
+        source: String? = null
+    ): Result<JSONObject> {
+        val qs = buildString {
+            append("?")
+            if (q.isNotBlank()) append("q=").append(java.net.URLEncoder.encode(q, "UTF-8")).append('&')
+            if (!status.isNullOrBlank()) append("status=").append(status).append('&')
+            if (!source.isNullOrBlank()) append("source=").append(source).append('&')
+        }.trimEnd('&', '?')
+        return get("/v1/complaints/admin$qs", token)
+    }
+
+    suspend fun updateComplaintStatus(
+        token: String,
+        id: Long,
+        status: String
+    ): Result<JSONObject> = request {
+        apiClient.patch(
+            "/v1/complaints/$id/status",
+            jsonOf("status" to status),
+            token
+        )
+    }
 
     // ── Staff / admin (cloud Postgres) ──────────────────────────────
 
@@ -201,9 +248,17 @@ class BdApi(private val apiClient: ApiClient = ApiClient()) {
     suspend fun deletePlan(token: String, id: Long): Result<JSONObject> =
         request { apiClient.delete("/v1/plans/$id", token) }
 
-    suspend fun dashboard(token: String, agentId: Long? = null): Result<JSONObject> {
-        val q = if (agentId != null && agentId > 0) "?agentId=$agentId" else ""
-        return get("/v1/analytics/dashboard$q", token)
+    suspend fun dashboard(
+        token: String,
+        agentId: Long? = null,
+        period: String? = null
+    ): Result<JSONObject> {
+        val qs = buildString {
+            append("?")
+            if (agentId != null && agentId > 0) append("agentId=").append(agentId).append('&')
+            if (!period.isNullOrBlank()) append("period=").append(period).append('&')
+        }.trimEnd('&', '?')
+        return get("/v1/analytics/dashboard$qs", token)
     }
 
     suspend fun createStaffQr(
@@ -225,6 +280,35 @@ class BdApi(private val apiClient: ApiClient = ApiClient()) {
 
     suspend fun staffQrStatus(token: String, qrId: String): Result<JSONObject> =
         get("/v1/staff/payments/qr/$qrId", token)
+
+    suspend fun listDevotees(
+        token: String,
+        q: String = "",
+        agentId: Long? = null
+    ): Result<JSONObject> {
+        val qs = buildString {
+            append("?")
+            if (q.isNotBlank()) append("q=").append(java.net.URLEncoder.encode(q, "UTF-8")).append('&')
+            if (agentId != null && agentId > 0) append("agentId=").append(agentId).append('&')
+        }.trimEnd('&', '?')
+        return get("/v1/devotees$qs", token)
+    }
+
+    suspend fun createDevotee(token: String, body: JSONObject): Result<JSONObject> =
+        post("/v1/devotees", body, token)
+
+    suspend fun getDevotee(token: String, id: Long): Result<JSONObject> =
+        get("/v1/devotees/$id", token)
+
+    suspend fun updateDevotee(token: String, id: Long, body: JSONObject): Result<JSONObject> =
+        request { apiClient.put("/v1/devotees/$id", body, token) }
+
+    suspend fun draftDevotee(token: String, id: Long): Result<JSONObject> =
+        request { apiClient.delete("/v1/devotees/$id", token) }
+
+    /** Public — no auth. Client compares versionCode to BuildConfig.VERSION_CODE. */
+    suspend fun getAppVersion(platform: String = "android"): Result<JSONObject> =
+        get("/v1/app/version?platform=$platform")
 
     private suspend fun get(path: String, token: String? = null): Result<JSONObject> =
         request { apiClient.get(path, token) }

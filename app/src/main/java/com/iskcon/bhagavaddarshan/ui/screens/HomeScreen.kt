@@ -241,7 +241,17 @@ fun SubscriptionCard(item: Subscription, onClick: () -> Unit) {
                 )
             }
             Spacer(Modifier.height(6.dp))
-            Text("${item.phone} · ${item.planYears} yr · ₹${item.totalAmount}", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                "${item.phone} · ${
+                    when {
+                        item.planYears >= 6 -> "${item.planYears} mo"
+                        item.planMonths > 0 -> "${item.planMonths} mo"
+                        item.planYears > 0 -> "${item.planYears * 12} mo"
+                        else -> "—"
+                    }
+                } · ₹${item.totalAmount}",
+                style = MaterialTheme.typography.bodyMedium
+            )
             Spacer(Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(

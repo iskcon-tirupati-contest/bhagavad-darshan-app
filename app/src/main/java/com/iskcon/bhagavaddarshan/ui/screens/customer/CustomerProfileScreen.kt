@@ -46,8 +46,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.iskcon.bhagavaddarshan.BhagavadDarshanApp
 import com.iskcon.bhagavaddarshan.network.BdApi
+import com.iskcon.bhagavaddarshan.ui.components.BdCard
+import com.iskcon.bhagavaddarshan.ui.components.RadiantGoldButton
+import com.iskcon.bhagavaddarshan.ui.components.SoftOutlinedButton
 import com.iskcon.bhagavaddarshan.ui.components.customerFieldColors
 import com.iskcon.bhagavaddarshan.ui.screens.friendlyError
+import com.iskcon.bhagavaddarshan.ui.theme.BdSpace
+import com.iskcon.bhagavaddarshan.ui.theme.BdType
 import com.iskcon.bhagavaddarshan.ui.theme.EditCard
 import com.iskcon.bhagavaddarshan.ui.theme.EditChocolate
 import com.iskcon.bhagavaddarshan.ui.theme.EditCream
@@ -56,6 +61,7 @@ import com.iskcon.bhagavaddarshan.ui.theme.EditPeach
 import com.iskcon.bhagavaddarshan.ui.theme.EditTerracotta
 import com.iskcon.bhagavaddarshan.ui.theme.Inter
 import com.iskcon.bhagavaddarshan.ui.theme.PlayfairDisplay
+import com.iskcon.bhagavaddarshan.ui.theme.customerContentWidth
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -63,7 +69,7 @@ import org.json.JSONObject
 fun CustomerProfileScreen(
     app: BhagavadDarshanApp,
     language: CustomerLanguage = CustomerLanguage.ENGLISH,
-    onLogout: () -> Unit,
+    @Suppress("UNUSED_PARAMETER") onLogout: () -> Unit,
     onHelp: () -> Unit = {},
     onLanguageChange: (CustomerLanguage) -> Unit = {}
 ) {
@@ -120,49 +126,41 @@ fun CustomerProfileScreen(
         modifier = Modifier
             .fillMaxSize()
             .background(EditCream)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 22.dp, vertical = 8.dp)
-            .padding(bottom = 28.dp)
+            .verticalScroll(rememberScrollState()),
+        horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        Column(
+            modifier = Modifier
+                .customerContentWidth()
+                .padding(horizontal = BdSpace.ScreenHorizontal, vertical = BdSpace.ScreenTop)
+                .padding(bottom = BdSpace.BottomNavClearance)
+        ) {
         Text(
-            "BHAGAVAD DARSHAN",
-            fontFamily = Inter,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Bold,
-            letterSpacing = 1.4.sp,
-            color = EditTerracotta
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            tr(language, "Profile", "ప్రొఫైల్"),
-            fontFamily = PlayfairDisplay,
-            fontWeight = FontWeight.Bold,
-            fontSize = 28.sp,
-            color = EditChocolate
-        )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            name.ifBlank { "Devotee" },
-            fontFamily = Inter,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.SemiBold,
-            color = EditChocolate
-        )
-        Text(
-            "+91 ${app.session.agentPhone}",
-            fontFamily = Inter,
-            fontSize = 14.sp,
-            color = EditMuted
+            tr(language, "Manage your address, language and payments.", "మీ చిరునామా, భాష మరియు చెల్లింపులను నిర్వహించండి."),
+            style = BdType.PageSubtitle
         )
 
-        Spacer(Modifier.height(22.dp))
+        Spacer(Modifier.height(16.dp))
+        BdCard(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                name.ifBlank { "Devotee" },
+                style = BdType.SectionTitle
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                "+91 ${app.session.agentPhone}",
+                style = BdType.Body
+            )
+        }
+
+        Spacer(Modifier.height(16.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .shadow(6.dp, RoundedCornerShape(22.dp), spotColor = Color(0x18000000))
-                .clip(RoundedCornerShape(22.dp))
+                .shadow(3.dp, RoundedCornerShape(20.dp), spotColor = Color(0x18000000))
+                .clip(RoundedCornerShape(20.dp))
                 .background(EditCard)
-                .border(1.dp, Color(0xFFE8DDD0), RoundedCornerShape(22.dp))
+                .border(1.dp, Color(0xFFE8DDD0), RoundedCornerShape(20.dp))
                 .padding(18.dp)
         ) {
             Row(verticalAlignment = Alignment.Top) {
@@ -189,12 +187,12 @@ fun CustomerProfileScreen(
                         Text(
                             "Add your delivery address so the magazine can be posted to your home.",
                             fontFamily = Inter,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             color = EditMuted
                         )
                     } else {
                         addressLines.forEach {
-                            Text(it, fontFamily = Inter, fontSize = 14.sp, color = EditMuted, lineHeight = 20.sp)
+                            Text(it, fontFamily = Inter, fontSize = 16.sp, color = EditMuted, lineHeight = 20.sp)
                         }
                     }
                 }
@@ -214,51 +212,38 @@ fun CustomerProfileScreen(
             }
 
             Spacer(Modifier.height(16.dp))
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(14.dp))
-                    .background(EditTerracotta)
-                    .clickable {
-                        if (!editing) {
-                            editing = true
-                            return@clickable
-                        }
-                        scope.launch {
-                            val body = JSONObject()
-                                .put("name", name.trim())
-                                .put("houseNo", houseNo.trim())
-                                .put("street", street.trim())
-                                .put("villageTown", villageTown.trim())
-                                .put("district", district.trim())
-                                .put("pincode", pincode.trim())
-                                .put("state", state.trim())
-                            api.updateProfile(token, body).onSuccess {
-                                app.session.updateProfile(name.trim(), app.session.agentPhone)
-                                message = "Address saved"
-                                editing = false
-                            }.onFailure {
-                                message = friendlyError(it)
-                            }
+            RadiantGoldButton(
+                text = if (editing) "Save address" else "Edit & save address",
+                onClick = {
+                    if (!editing) {
+                        editing = true
+                        return@RadiantGoldButton
+                    }
+                    scope.launch {
+                        val body = JSONObject()
+                            .put("name", name.trim())
+                            .put("houseNo", houseNo.trim())
+                            .put("street", street.trim())
+                            .put("villageTown", villageTown.trim())
+                            .put("district", district.trim())
+                            .put("pincode", pincode.trim())
+                            .put("state", state.trim())
+                        api.updateProfile(token, body).onSuccess {
+                            app.session.updateProfile(name.trim(), app.session.agentPhone)
+                            message = "Address saved"
+                            editing = false
+                        }.onFailure {
+                            message = friendlyError(it)
                         }
                     }
-                    .padding(vertical = 14.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    if (editing) "Save address" else "Edit & save address",
-                    fontFamily = Inter,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp,
-                    color = Color.White
-                )
-            }
+                }
+            )
             if (editing) {
                 Text(
                     "Cancel",
                     fontFamily = Inter,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp,
+                    fontSize = 15.sp,
                     color = EditTerracotta,
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
@@ -302,7 +287,7 @@ fun CustomerProfileScreen(
                     Text(
                         if (language == CustomerLanguage.ENGLISH) "English" else "తెలుగు",
                         fontFamily = Inter,
-                        fontSize = 13.sp,
+                        fontSize = 15.sp,
                         color = EditMuted
                     )
                 }
@@ -355,7 +340,7 @@ fun CustomerProfileScreen(
                         fontSize = 17.sp,
                         color = EditChocolate
                     )
-                    Text("Your renewals and seva", fontFamily = Inter, fontSize = 13.sp, color = EditMuted)
+                    Text("Your renewals and seva", fontFamily = Inter, fontSize = 15.sp, color = EditMuted)
                 }
                 Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = Color(0xFFE8DDD0))
             }
@@ -372,11 +357,13 @@ fun CustomerProfileScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = EditChocolate
                             )
-                            Text(p.optString("order_id"), fontFamily = Inter, fontSize = 12.sp, color = EditMuted)
+                            Text(p.optString("order_id"), fontFamily = Inter, fontSize = 15.sp, color = EditMuted)
                         }
                     }
                 }
             }
+        }
+
         }
     }
 }

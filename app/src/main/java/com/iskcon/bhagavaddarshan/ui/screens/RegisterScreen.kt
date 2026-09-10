@@ -313,7 +313,7 @@ fun RegisterScreen(
 
                 1 -> {
                     AccentSectionTitle("Choose Plan")
-                    SubscriptionPlan.entries.filter { it.years != 4 }.forEach { plan ->
+                    SubscriptionPlan.activePlans.forEach { plan ->
                         val selected = form.plan == plan
                         Row(
                             modifier = Modifier
@@ -352,13 +352,9 @@ fun RegisterScreen(
                                     )
                                 }
                                 Text(
-                                    "Magazine ₹${plan.magazineRupees} + postage ₹${plan.postageRupees}",
+                                    plan.description,
                                     style = MaterialTheme.typography.bodySmall,
                                     color = Color(0xFF9E9E9E)
-                                )
-                                Spacer(Modifier.height(6.dp))
-                                MetaChip(
-                                    text = "${plan.giftBooks} gift book${if (plan.giftBooks == 1) "" else "s"}"
                                 )
                             }
                         }

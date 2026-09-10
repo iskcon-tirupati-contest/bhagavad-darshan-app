@@ -4,15 +4,15 @@ enum class AdminTab(val label: String) {
     HOME("Home"),
     CUSTOMERS("Customers"),
     AGENTS("Agents"),
+    COMPLAINTS("Complaints"),
     PLANS("Plans"),
     RECONCILE("Reconcile")
 }
 
 enum class AgentTab(val label: String) {
     HOME("Home"),
-    CUSTOMERS("Customers"),
-    PROFILE("Profile"),
-    RECONCILE("Reconcile")
+    DEVOTEES("Devotees"),
+    PROFILE("Profile")
 }
 
 enum class CustomerTab(val label: String) {

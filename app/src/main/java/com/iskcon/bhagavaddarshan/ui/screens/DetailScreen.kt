@@ -55,6 +55,7 @@ import androidx.compose.ui.unit.sp
 import com.iskcon.bhagavaddarshan.BhagavadDarshanApp
 import com.iskcon.bhagavaddarshan.data.Subscription
 import com.iskcon.bhagavaddarshan.data.SubscriptionPlan
+import com.iskcon.bhagavaddarshan.data.planDurationMonths
 import com.iskcon.bhagavaddarshan.ui.components.ActiveGreenChip
 import com.iskcon.bhagavaddarshan.ui.components.CompactTopBar
 import com.iskcon.bhagavaddarshan.ui.components.MetaChip
@@ -207,7 +208,7 @@ fun DetailScreen(
                         )
                     }
                     Text(
-                        "${sub.planYears} year(s) · ₹${sub.totalAmount}",
+                        "${planDurationMonths(sub.planYears, sub.planMonths)} month(s) · ₹${sub.totalAmount}",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
@@ -217,7 +218,7 @@ fun DetailScreen(
                     DetailLine("Address", buildAddress(sub))
                     DetailLine(
                         "Plan",
-                        "${sub.planYears} year(s) · ₹${sub.totalAmount} (mag ₹${sub.magazineAmount} + post ₹${sub.postageAmount})"
+                        "${planDurationMonths(sub.planYears, sub.planMonths)} month(s) · ₹${sub.totalAmount}"
                     )
                     DetailLine("Gift books", sub.giftBooks.toString())
                     DetailLine("Start month", sub.startMonth)
@@ -464,8 +465,9 @@ private fun subscriptionProgress(sub: Subscription): Triple<Int, Int, Float>? {
         ChronoUnit.MONTHS.between(startYm, YearMonth.from(it)).toInt() + 1
     }
     val totalFromPlan = when {
-        sub.planYears > 0 -> sub.planYears * 12
+        sub.planYears >= 6 -> sub.planYears
         sub.planMonths > 0 -> sub.planMonths
+        sub.planYears > 0 -> sub.planYears * 12
         else -> null
     }
     val total = (totalFromDates ?: totalFromPlan)?.coerceAtLeast(1) ?: return null

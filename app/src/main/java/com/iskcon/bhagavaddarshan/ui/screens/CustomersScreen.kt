@@ -43,6 +43,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.iskcon.bhagavaddarshan.data.Subscription
@@ -61,6 +62,7 @@ import com.iskcon.bhagavaddarshan.ui.theme.Marigold
 import com.iskcon.bhagavaddarshan.ui.theme.Outline
 import com.iskcon.bhagavaddarshan.ui.theme.SoftRed
 import com.iskcon.bhagavaddarshan.ui.theme.SoftRedContainer
+import com.iskcon.bhagavaddarshan.util.UiSounds
 
 private enum class CustomerFilter(val label: String) {
     ALL("All"),
@@ -81,6 +83,7 @@ fun CustomersScreen(
     var filter by remember { mutableStateOf(CustomerFilter.ALL) }
     val list by viewModel.scopedSubscriptions.collectAsState()
     var deleteId by remember { mutableStateOf<Long?>(null) }
+    val context = LocalContext.current
 
     val filtered = remember(list, query, filter) {
         list.asSequence()
@@ -117,7 +120,10 @@ fun CustomersScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onAdd,
+                onClick = {
+                    UiSounds.click(context)
+                    onAdd()
+                },
                 containerColor = Marigold,
                 contentColor = Color.White,
                 shape = CircleShape
@@ -149,7 +155,10 @@ fun CustomersScreen(
                     val selected = filter == f
                     FilterChip(
                         selected = selected,
-                        onClick = { filter = f },
+                        onClick = {
+                            UiSounds.click(context)
+                            filter = f
+                        },
                         label = { Text(f.label) },
                         border = if (selected) null else BorderStroke(1.dp, Outline),
                         colors = FilterChipDefaults.filterChipColors(
@@ -177,8 +186,14 @@ fun CustomersScreen(
                         StaggeredEntrance(index = index) {
                             CustomerRow(
                                 item = item,
-                                onEdit = { onEdit(item.id) },
-                                onDelete = { deleteId = item.id }
+                                onEdit = {
+                                    UiSounds.click(context)
+                                    onEdit(item.id)
+                                },
+                                onDelete = {
+                                    UiSounds.click(context)
+                                    deleteId = item.id
+                                }
                             )
                         }
                     }
@@ -194,12 +209,16 @@ fun CustomersScreen(
             text = { Text("This removes the subscription record.") },
             confirmButton = {
                 TextButton(onClick = {
+                    UiSounds.delete(context)
                     viewModel.delete(id) {}
                     deleteId = null
                 }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
-                TextButton(onClick = { deleteId = null }) { Text("Cancel") }
+                TextButton(onClick = {
+                    UiSounds.click(context)
+                    deleteId = null
+                }) { Text("Cancel") }
             }
         )
     }
@@ -258,7 +277,12 @@ private fun CustomerRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 MetaChip(
-                    text = if (item.planYears > 0) "${item.planYears} yr" else "${item.planMonths} mo"
+                    text = when {
+                        item.planYears >= 6 -> "${item.planYears} mo"
+                        item.planMonths > 0 -> "${item.planMonths} mo"
+                        item.planYears > 0 -> "${item.planYears * 12} mo"
+                        else -> "—"
+                    }
                 )
                 MetaChip(text = "₹${item.totalAmount}")
                 StatusMetaChip(status = item.status)

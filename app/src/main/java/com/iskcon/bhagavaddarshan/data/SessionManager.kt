@@ -43,10 +43,14 @@ class SessionManager(context: Context) {
 
     val isAdmin: Boolean get() = role == Agent.Role.ADMIN
     val isCustomer: Boolean get() = role == Agent.Role.CUSTOMER
+    /** Session is valid only with an auth token. Remember-me only prefills phone after logout. */
     val isLoggedIn: Boolean
-        get() = authToken.isNotBlank() ||
-            if (isCustomer) agentPhone.filter(Char::isDigit).length == 10
-            else agentId > 0L
+        get() = authToken.isNotBlank()
+
+    fun clearRememberMe() {
+        rememberMe = false
+        // Keep current session; only stop auto-prefilling phone after future logout.
+    }
 
     fun login(agent: Agent, remember: Boolean) {
         agentId = agent.id
@@ -98,14 +102,12 @@ class SessionManager(context: Context) {
     }
 
     fun logout() {
-        val keepRemember = rememberMe
-        val phone = if (keepRemember) agentPhone else ""
-        val wasCustomer = isCustomer
+        val keepPhone = if (rememberMe) agentPhone else ""
         prefs.edit().clear().apply()
-        if (keepRemember && phone.isNotBlank()) {
+        if (keepPhone.isNotBlank()) {
             rememberMe = true
-            agentPhone = phone
-            if (wasCustomer) role = Agent.Role.CUSTOMER
+            agentPhone = keepPhone
+            // Do not restore role/token — user must verify OTP again.
         }
     }
 

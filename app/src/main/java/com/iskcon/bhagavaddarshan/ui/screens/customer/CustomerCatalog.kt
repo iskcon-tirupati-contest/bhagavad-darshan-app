@@ -1,6 +1,6 @@
 package com.iskcon.bhagavaddarshan.ui.screens.customer
 
-import com.iskcon.bhagavaddarshan.R
+import com.iskcon.bhagavaddarshan.BuildConfig
 
 data class SacredBook(
     val title: String,
@@ -16,46 +16,56 @@ data class MagazineIssue(
     val imageUrl: String
 )
 
+/** Large images hosted on Lightsail — keeps the APK small. */
+object BdMedia {
+    private val root: String =
+        BuildConfig.API_BASE_URL.trimEnd('/') + "/media"
+
+    fun url(fileName: String): String = "$root/$fileName"
+}
+
 object CustomerCatalog {
     const val LATEST_ISSUE_LABEL = "August 2026 Issue"
     const val LATEST_ISSUE_TITLE = "Jagannatha Ratha Yatra Mahotsavam"
     const val LATEST_ISSUE_BLURB =
         "A special festival edition on Lord Jagannatha's grand chariot procession and its devotional mood."
-    val LATEST_COVER: Any = R.drawable.magazine_august_2026
-    const val LOGIN_HERO =
-        "https://storage.googleapis.com/uxpilot-auth.appspot.com/gen_c06cfc2929_820b1713a5745d1f.png"
-    val HOME_EMBLEM: Any = R.drawable.tilak_mark
+    val LATEST_COVER: Any = BdMedia.url("magazine_august_2026.png")
+    val LOGIN_HERO: Any = BdMedia.url("login_hero.png")
+    /** Fresh filename so Coil/CDN cannot keep serving the replaced circular image. */
+    val LOGIN_TOP_SECTION: Any = BdMedia.url("login_top_section_original.png?v=old1")
+    val HOME_EMBLEM: Any = BdMedia.url("tilak_mark.png")
+    val LORD_KRISHNA: Any = BdMedia.url("lord_krishna_standing.png")
 
     val books = listOf(
         SacredBook(
             title = "Bhagavad Gita",
             subtitle = "As It Is",
             priceRupees = 400,
-            imageModel = R.drawable.book_bhagavad_gita
+            imageModel = BdMedia.url("book_bhagavad_gita.png")
         ),
         SacredBook(
             title = "Srimad Bhagavatam",
             subtitle = "Full Set",
             priceRupees = 8500,
-            imageModel = R.drawable.book_bhagavatam
+            imageModel = BdMedia.url("book_bhagavatam.png")
         ),
         SacredBook(
             title = "Krishna Book",
             subtitle = "The Supreme Personality of Godhead",
             priceRupees = 400,
-            imageModel = R.drawable.book_krishna
+            imageModel = BdMedia.url("book_krishna.png")
         ),
         SacredBook(
             title = "Sri Chaitanya Charitamrta",
             subtitle = "Full set",
             priceRupees = 3000,
-            imageModel = R.drawable.book_chaitanya_charitamrta
+            imageModel = BdMedia.url("book_chaitanya_charitamrta.png")
         ),
         SacredBook(
             title = "Ramayana",
             subtitle = "Pastimes of Lord Rama",
             priceRupees = 400,
-            imageModel = R.drawable.book_ramayana
+            imageModel = BdMedia.url("book_ramayana.webp")
         )
     )
 

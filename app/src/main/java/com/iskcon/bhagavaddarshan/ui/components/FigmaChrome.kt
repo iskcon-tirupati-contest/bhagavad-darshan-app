@@ -25,8 +25,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,8 +71,15 @@ fun SoftSearchField(
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .shadow(
+                elevation = 3.dp,
+                shape = RoundedCornerShape(12.dp),
+                spotColor = Color(0x1A000000),
+                ambientColor = Color(0x14000000)
+            )
             .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFF0EBE4))
+            .background(Color(0xFFF6F2EC))
+            .border(1.dp, Color(0xFFE8E0D4), RoundedCornerShape(12.dp))
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -161,29 +170,86 @@ fun FigmaStatCard(
     label: String,
     modifier: Modifier = Modifier,
     valueColor: Color = MaterialTheme.colorScheme.onSurface,
-    containerColor: Color = Color.White
+    containerColor: Color = Color.White,
+    icon: ImageVector? = null,
+    iconTint: Color = Marigold,
+    compact: Boolean = false
 ) {
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(12.dp))
+            .shadow(
+                elevation = if (compact) 3.dp else 6.dp,
+                shape = RoundedCornerShape(if (compact) 10.dp else 12.dp),
+                spotColor = Color(0x33000000),
+                ambientColor = Color(0x22000000)
+            )
+            .clip(RoundedCornerShape(if (compact) 10.dp else 12.dp))
             .background(containerColor)
-            .border(1.dp, Color(0xFFE8E0D6), RoundedCornerShape(12.dp))
-            .padding(horizontal = 12.dp, vertical = 14.dp)
+            .border(1.dp, Color(0xFFE8E0D6), RoundedCornerShape(if (compact) 10.dp else 12.dp))
+            .padding(
+                horizontal = if (compact) 10.dp else 12.dp,
+                vertical = if (compact) 8.dp else 14.dp
+            )
     ) {
-        Column {
-            Text(
-                value,
-                style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold,
-                color = valueColor
-            )
-            Spacer(Modifier.height(2.dp))
-            Text(
-                label.uppercase(),
-                style = MaterialTheme.typography.labelMedium,
-                color = Color(0xFF9E9E9E),
-                letterSpacing = 0.6.sp
-            )
+        if (compact) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (icon != null) {
+                    Box(
+                        Modifier
+                            .size(22.dp)
+                            .clip(RoundedCornerShape(6.dp))
+                            .background(iconTint.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(13.dp))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                }
+                Column {
+                    Text(
+                        value,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = valueColor,
+                        maxLines = 1
+                    )
+                    Text(
+                        label.uppercase(),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF9E9E9E),
+                        letterSpacing = 0.4.sp,
+                        maxLines = 1
+                    )
+                }
+            }
+        } else {
+            Column {
+                if (icon != null) {
+                    Box(
+                        Modifier
+                            .size(26.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(iconTint.copy(alpha = 0.14f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(15.dp))
+                    }
+                    Spacer(Modifier.height(8.dp))
+                }
+                Text(
+                    value,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = valueColor
+                )
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    label.uppercase(),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = Color(0xFF9E9E9E),
+                    letterSpacing = 0.6.sp
+                )
+            }
         }
     }
 }

@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
@@ -71,6 +72,7 @@ import com.iskcon.bhagavaddarshan.ui.theme.Marigold
 import com.iskcon.bhagavaddarshan.ui.theme.SoftRed
 import com.iskcon.bhagavaddarshan.ui.theme.SoftRedContainer
 import com.iskcon.bhagavaddarshan.util.FormValidators
+import com.iskcon.bhagavaddarshan.util.UiSounds
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -90,6 +92,7 @@ fun AdminAgentsScreen(
     var reloadTick by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
     val token = app.session.authToken
+    val context = LocalContext.current
 
     suspend fun reload() {
         val json = app.api.listAgents(token).getOrThrow()
@@ -147,7 +150,10 @@ fun AdminAgentsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onCreate,
+                onClick = {
+                    UiSounds.click(context)
+                    onCreate()
+                },
                 containerColor = Marigold,
                 contentColor = Color.White,
                 shape = CircleShape
@@ -208,7 +214,10 @@ fun AdminAgentsScreen(
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { onEdit(agent.id) },
+                            .clickable {
+                                UiSounds.click(context)
+                                onEdit(agent.id)
+                            },
                         shape = RoundedCornerShape(12.dp),
                         colors = CardDefaults.cardColors(containerColor = Color.White),
                         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)

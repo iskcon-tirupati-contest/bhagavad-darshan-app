@@ -73,11 +73,22 @@ object PlanSeeder {
             dao.insertAll(plans)
             return
         }
-        // Keep English labels in sync with flyer enum
-        SubscriptionPlan.entries.forEach { plan ->
-            val existing = dao.getByYears(plan.years) ?: return@forEach
-            if (existing.labelTe != plan.labelEn) {
-                dao.update(existing.copy(labelTe = plan.labelEn))
+        // Sync flyer plans (amounts + labels) and insert any missing month tiers
+        SubscriptionPlan.entries.forEachIndexed { index, plan ->
+            val existing = dao.getByYears(plan.years)
+            if (existing == null) {
+                dao.insert(SubscriptionPlanEntity.fromEnum(plan, sortOrder = index + 1))
+            } else {
+                dao.update(
+                    existing.copy(
+                        magazineAmount = plan.magazineRupees,
+                        postageAmount = plan.postageRupees,
+                        giftBooks = plan.giftBooks,
+                        labelTe = plan.labelEn,
+                        active = true,
+                        sortOrder = index + 1
+                    )
+                )
             }
         }
     }

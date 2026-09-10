@@ -15,8 +15,8 @@ android {
         applicationId = "com.iskcon.bhagavaddarshan"
         minSdk = 24
         targetSdk = 35
-        versionCode = 19
-        versionName = "1.0.0"
+        versionCode = 35
+        versionName = "1.1.6"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val localProps = Properties()

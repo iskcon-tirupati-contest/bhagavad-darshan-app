@@ -1,14 +1,18 @@
 package com.iskcon.bhagavaddarshan.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarColors
 import androidx.compose.material3.TopAppBarDefaults
@@ -19,10 +23,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.iskcon.bhagavaddarshan.ui.theme.IvoryDeep
+import com.iskcon.bhagavaddarshan.ui.theme.TempleGreen
 
 val CompactTopBarContentHeight = 56.dp
-val CompactBottomBarHeight = 80.dp
-val ListBottomSafeGap = 32.dp
+val CompactBottomBarHeight = 62.dp
+val CompactBottomBarTopPad = 8.dp
+val ListBottomSafeGap = 28.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -71,9 +77,9 @@ fun GradientTopBar(
         actions = actions,
         colors = TopAppBarDefaults.topAppBarColors(
             containerColor = Color.Transparent,
-            titleContentColor = Color.White,
-            actionIconContentColor = Color.White,
-            navigationIconContentColor = Color.White
+            titleContentColor = TempleGreen,
+            actionIconContentColor = TempleGreen,
+            navigationIconContentColor = TempleGreen
         ),
         windowInsets = WindowInsets(0, 0, 0, 0),
         expandedHeight = contentHeight
@@ -83,14 +89,38 @@ fun GradientTopBar(
 @Composable
 fun CompactBottomBar(
     modifier: Modifier = Modifier,
+    containerColor: Color = IvoryDeep,
+    contentColor: Color = MaterialTheme.colorScheme.onSurface,
     content: @Composable RowScope.() -> Unit
 ) {
-    NavigationBar(
-        modifier = modifier,
-        containerColor = IvoryDeep,
-        contentColor = MaterialTheme.colorScheme.onSurface,
-        tonalElevation = NavigationBarDefaults.Elevation,
-        windowInsets = WindowInsets.navigationBars,
-        content = content
-    )
+    // Keep a fixed content height, then paint an inset strip below so system
+    // navigation padding cannot crush icons/labels (which made the bar look gone).
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(containerColor)
+    ) {
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .height(CompactBottomBarTopPad)
+                .background(containerColor)
+        )
+        NavigationBar(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(CompactBottomBarHeight),
+            containerColor = containerColor,
+            contentColor = contentColor,
+            tonalElevation = 0.dp,
+            windowInsets = WindowInsets(0, 0, 0, 0),
+            content = content
+        )
+        Spacer(
+            Modifier
+                .fillMaxWidth()
+                .windowInsetsBottomHeight(WindowInsets.navigationBars)
+                .background(containerColor)
+        )
+    }
 }

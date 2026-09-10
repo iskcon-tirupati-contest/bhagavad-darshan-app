@@ -29,7 +29,7 @@ data class RegisterFormState(
     val pincode: String = "",
     val state: String = IndianStates.DEFAULT,
     val phone: String = "",
-    val plan: SubscriptionPlan = SubscriptionPlan.ONE_YEAR,
+    val plan: SubscriptionPlan = SubscriptionPlan.TWELVE_MONTHS,
     /** Book sale amount for redeem mode. */
     val bookSaleAmount: String = "",
     val error: String? = null,
@@ -194,7 +194,7 @@ class SubscriptionViewModel(
                 plan = if (bookSaleAmount > 0) null else f.plan,
                 planMonths = planMonthsOverride
                     ?: if (bookSaleAmount > 0) BookRedeemCalculator.monthsForSale(bookSaleAmount)
-                    else f.plan.years * 12,
+                    else f.plan.months,
                 bookSaleAmount = bookSaleAmount,
                 paymentRef = paymentRef,
                 paymentMethod = paymentMethod,

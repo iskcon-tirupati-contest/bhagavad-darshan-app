@@ -197,9 +197,9 @@ private fun PlanWireframeCard(
     var menuOpen by remember { mutableStateOf(false) }
     val title = when {
         plan.labelTe.isNotBlank() -> plan.labelTe
-        plan.years >= 15 -> "Lifetime (${plan.years} Yrs)"
-        plan.years == 1 -> "1 Year"
-        else -> "${plan.years} Years"
+        plan.years >= 6 -> "${plan.years} Months"
+        plan.years == 1 -> "1 Month"
+        else -> "${plan.years} Months"
     }
     val breakdown = if (plan.magazineAmount == 0 && plan.postageAmount == 0) {
         "One-time dispatch"
@@ -320,10 +320,10 @@ private fun PlanEditDialog(
         mutableStateOf((initial?.years ?: 1).toString())
     }
     var mag by remember {
-        mutableStateOf((initial?.magazineAmount ?: SubscriptionPlan.ONE_YEAR.magazineRupees).toString())
+        mutableStateOf((initial?.magazineAmount ?: SubscriptionPlan.TWELVE_MONTHS.magazineRupees).toString())
     }
     var post by remember {
-        mutableStateOf((initial?.postageAmount ?: SubscriptionPlan.ONE_YEAR.postageRupees).toString())
+        mutableStateOf((initial?.postageAmount ?: SubscriptionPlan.TWELVE_MONTHS.postageRupees).toString())
     }
     var gifts by remember { mutableStateOf((initial?.giftBooks ?: 0).toString()) }
     var label by remember { mutableStateOf(initial?.labelTe.orEmpty()) }
@@ -335,11 +335,11 @@ private fun PlanEditDialog(
         title = { Text(if (initial == null) "Add plan" else "Edit plan") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(value = years, onValueChange = { years = it.filter(Char::isDigit).take(2) }, label = { Text("Years") }, singleLine = true, shape = RoundedCornerShape(8.dp))
+                OutlinedTextField(value = years, onValueChange = { years = it.filter(Char::isDigit).take(2) }, label = { Text("Months (plan key)") }, singleLine = true, shape = RoundedCornerShape(8.dp))
                 OutlinedTextField(value = mag, onValueChange = { mag = it.filter(Char::isDigit) }, label = { Text("Magazine ₹") }, singleLine = true, shape = RoundedCornerShape(8.dp))
                 OutlinedTextField(value = post, onValueChange = { post = it.filter(Char::isDigit) }, label = { Text("Postage ₹") }, singleLine = true, shape = RoundedCornerShape(8.dp))
                 OutlinedTextField(value = gifts, onValueChange = { gifts = it.filter(Char::isDigit) }, label = { Text("Gift books") }, singleLine = true, shape = RoundedCornerShape(8.dp))
-                OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Display label (e.g. 1 Year)") }, shape = RoundedCornerShape(8.dp))
+                OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Display label (e.g. 12 Months)") }, shape = RoundedCornerShape(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("Active (visible)", Modifier.weight(1f))
                     Switch(checked = active, onCheckedChange = { active = it })
@@ -354,7 +354,7 @@ private fun PlanEditDialog(
                 val p = post.toIntOrNull() ?: -1
                 val g = gifts.toIntOrNull() ?: 0
                 if (y !in 1..99 || m < 0 || p < 0) {
-                    error = "Enter valid years and amounts"
+                    error = "Enter valid months and amounts"
                     return@Button
                 }
                 onSave(
@@ -365,7 +365,7 @@ private fun PlanEditDialog(
                         postageAmount = p,
                         giftBooks = g,
                         labelTe = label.trim().ifBlank {
-                            if (y == 1) "1 Year" else "$y Years"
+                            "$y Months"
                         },
                         active = active,
                         sortOrder = initial?.sortOrder ?: y

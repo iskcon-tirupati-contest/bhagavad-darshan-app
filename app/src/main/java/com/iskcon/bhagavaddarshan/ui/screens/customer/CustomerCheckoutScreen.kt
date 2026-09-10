@@ -89,6 +89,7 @@ fun CustomerCheckoutScreen(
     app: BhagavadDarshanApp,
     language: CustomerLanguage = CustomerLanguage.ENGLISH,
     planYears: Int,
+    shippingPaise: Int = 0,
     @Suppress("UNUSED_PARAMETER") paymentReturnTick: Int,
     onBack: () -> Unit,
     onPaidSuccess: (detail: String) -> Unit,
@@ -98,6 +99,7 @@ fun CustomerCheckoutScreen(
 ) {
     val isSeva = !sevaKind.isNullOrBlank()
     val plan = remember(planYears) { SubscriptionPlan.fromYears(planYears) }
+    val expressFeeRupees = (shippingPaise / 100).coerceAtLeast(0)
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val api = remember { BdApi() }
@@ -105,11 +107,11 @@ fun CustomerCheckoutScreen(
 
     val displayTitle = when {
         isSeva -> sevaTitle?.ifBlank { "Gita Daan" } ?: "Gita Daan"
-        else -> "${plan.years}${tr(language, " Year Subscription", " సంవత్సరాల సభ్యత్వం")}"
+        else -> "${plan.months}${tr(language, " Month Subscription", " నెలల సభ్యత్వం")}"
     }
     val displayRupees = when {
         isSeva -> (sevaAmountPaise ?: CustomerCatalog.GITA_DAAN_RUPEES * 100) / 100
-        else -> plan.totalRupees
+        else -> plan.totalRupees + expressFeeRupees
     }
     val amountLabel = if (BuildConfig.TEST_PAYMENTS) "₹1 (test)" else "₹$displayRupees"
 
@@ -127,8 +129,25 @@ fun CustomerCheckoutScreen(
     var complaintDone by remember { mutableStateOf(false) }
     var pendingUpiPaymentId by remember { mutableStateOf<String?>(null) }
     var awaitingUpi by remember { mutableStateOf(false) }
+    var customerName by remember { mutableStateOf(app.session.agentName.ifBlank { "Devotee" }) }
+    var deliveryAddress by remember { mutableStateOf("") }
 
-    LaunchedEffect(planYears, token, sevaKind, sevaAmountPaise) {
+    LaunchedEffect(token) {
+        if (token.isBlank()) return@LaunchedEffect
+        api.getMe(token).onSuccess { json ->
+            val c = json.optJSONObject("customer") ?: return@onSuccess
+            customerName = c.optString("name").ifBlank { app.session.agentName }.ifBlank { "Devotee" }
+            deliveryAddress = listOf(
+                listOf(c.optString("house_no"), c.optString("street")).filter { it.isNotBlank() }.joinToString(", "),
+                c.optString("village_town"),
+                listOf(c.optString("district"), c.optString("state"), c.optString("pincode"))
+                    .filter { it.isNotBlank() }
+                    .joinToString(", ")
+            ).filter { it.isNotBlank() }.joinToString("\n")
+        }
+    }
+
+    LaunchedEffect(planYears, shippingPaise, token, sevaKind, sevaAmountPaise) {
         preparing = true
         error = null
         if (token.isBlank()) {
@@ -148,7 +167,8 @@ fun CustomerCheckoutScreen(
             api.createPaymentOrder(
                 token = token,
                 planYears = planYears,
-                subscriptionId = subscriptionId.takeIf { it > 0L }
+                subscriptionId = subscriptionId.takeIf { it > 0L },
+                shippingPaise = shippingPaise
             )
         }
         result.onSuccess { json ->
@@ -186,23 +206,48 @@ fun CustomerCheckoutScreen(
     fun successDetail(json: JSONObject): String {
         val sub = json.optJSONObject("subscription")
         if (isSeva) {
+            val kind = when (sevaKind?.lowercase()) {
+                "book" -> "book"
+                "donation" -> "donation"
+                else -> "donation"
+            }
             return JSONObject()
-                .put("kind", "seva")
+                .put("kind", kind)
                 .put("reference", orderId.orEmpty().ifBlank { "BD-SEVA" })
+                .put("itemTitle", displayTitle)
+                .put("amountRupees", displayRupees)
+                .put("customerName", customerName)
+                .put("address", deliveryAddress)
                 .put("planLabel", "$displayTitle · ₹$displayRupees")
                 .put("endDate", "")
                 .toString()
         }
         val receipt = sub?.optLong("receipt_no") ?: 0L
-        val years = sub?.optInt("plan_years")?.takeIf { it > 0 } ?: plan.years
-        val end = sub?.optString("end_date").orEmpty()
+        val years = plan.years
+        val segmentEnd = sub?.optString("end_date").orEmpty()
+        // Full coverage through farthest end (includes carry-over from earlier plans).
+        val coverageEnd = json.optString("coverageEndDate").ifBlank { segmentEnd }
+        val previousEnd = json.optString("previousEndDate")
+        val carryOverDays = json.optInt("carryOverDays", 0)
+        val start = sub?.optString("start_date").orEmpty().ifBlank {
+            sub?.optString("start_month").orEmpty()
+        }
         val year = java.time.LocalDate.now().year
         val reference = if (receipt > 0L) "BD-$year-$receipt" else orderId.orEmpty()
         return JSONObject()
             .put("kind", "subscription")
             .put("reference", reference)
-            .put("planLabel", "$years Year Plan")
-            .put("endDate", end)
+            .put("planLabel", "${plan.months} Month Plan")
+            .put("planYears", years)
+            .put("amountRupees", displayRupees)
+            .put("shippingPaise", shippingPaise)
+            .put("startDate", start)
+            .put("endDate", coverageEnd)
+            .put("segmentEndDate", segmentEnd)
+            .put("previousEndDate", previousEnd)
+            .put("carryOverDays", carryOverDays)
+            .put("customerName", customerName)
+            .put("address", deliveryAddress)
             .toString()
     }
 
@@ -350,7 +395,7 @@ fun CustomerCheckoutScreen(
                 Text(
                     "CONFIRM & PAY",
                     fontFamily = Inter,
-                    fontSize = 12.sp,
+                    fontSize = 15.sp,
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.6.sp,
                     color = EditTerracotta
@@ -362,10 +407,10 @@ fun CustomerCheckoutScreen(
                     } else {
                         buildAnnotatedString {
                             withStyle(SpanStyle(fontSize = 38.sp, fontWeight = FontWeight.Bold)) {
-                                append(plan.years.toString())
+                                append(plan.months.toString())
                             }
                             withStyle(SpanStyle(fontSize = 28.sp, fontWeight = FontWeight.Bold)) {
-                                append(tr(language, " Year plan", " సంవత్సరాల ప్లాన్"))
+                                append(tr(language, " Month plan", " నెలల ప్లాన్"))
                             }
                         }
                     },
@@ -391,10 +436,10 @@ fun CustomerCheckoutScreen(
                     } else {
                         buildAnnotatedString {
                             withStyle(SpanStyle(fontSize = 24.sp, fontWeight = FontWeight.Bold)) {
-                                append(plan.years.toString())
+                                append(plan.months.toString())
                             }
                             withStyle(SpanStyle(fontSize = 18.sp, fontWeight = FontWeight.Bold)) {
-                                append(tr(language, " Year Magazine Plan", " సంవత్సరాల మ్యాగజైన్ ప్లాన్"))
+                                append(tr(language, " Month Magazine Plan", " నెలల మ్యాగజైన్ ప్లాన్"))
                             }
                         }
                     },
@@ -406,19 +451,44 @@ fun CustomerCheckoutScreen(
                 Text(
                     if (isSeva) tr(language, "ISKCON Tirupati seva", "ఇస్కాన్ తిరుపతి సేవ") else tr(language, "Bhagavad Darshan · monthly at your door", "భగవద్ దర్శన్ · ప్రతి నెల మీ ఇంటి వద్దకు"),
                     fontFamily = Inter,
-                    fontSize = 14.sp,
+                    fontSize = 16.sp,
                     color = EditMuted
                 )
                 Spacer(Modifier.height(16.dp))
                 if (!isSeva) {
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Gift books", color = EditMuted, fontFamily = Inter, fontSize = 14.sp)
-                        Text("Included", fontWeight = FontWeight.Bold, color = EditChocolate, fontFamily = Inter, fontSize = 14.sp)
+                        Text(
+                            tr(language, "Plan", "ప్లాన్"),
+                            color = EditMuted,
+                            fontFamily = Inter,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            "₹${plan.totalRupees}",
+                            fontWeight = FontWeight.Bold,
+                            color = EditChocolate,
+                            fontFamily = Inter,
+                            fontSize = 16.sp
+                        )
                     }
                     Spacer(Modifier.height(8.dp))
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("Postage", color = EditMuted, fontFamily = Inter, fontSize = 14.sp)
-                        Text("INCLUDED", fontWeight = FontWeight.Bold, color = TulsiGreen, fontFamily = Inter, fontSize = 11.sp)
+                        Text(
+                            if (expressFeeRupees > 0)
+                                tr(language, "Express shipping", "ఎక్స్‌ప్రెస్ షిప్పింగ్")
+                            else
+                                tr(language, "Standard shipping", "స్టాండర్డ్ షిప్పింగ్"),
+                            color = EditMuted,
+                            fontFamily = Inter,
+                            fontSize = 16.sp
+                        )
+                        Text(
+                            if (expressFeeRupees > 0) "₹$expressFeeRupees" else "INCLUDED",
+                            fontWeight = FontWeight.Bold,
+                            color = if (expressFeeRupees > 0) EditChocolate else TulsiGreen,
+                            fontFamily = Inter,
+                            fontSize = 14.sp
+                        )
                     }
                     Spacer(Modifier.height(12.dp))
                 }
@@ -441,7 +511,7 @@ fun CustomerCheckoutScreen(
             Text(
                 statusText,
                 fontFamily = Inter,
-                fontSize = 12.sp,
+                fontSize = 15.sp,
                 color = EditMuted
             )
 
@@ -527,7 +597,7 @@ fun CustomerCheckoutScreen(
                         Text(
                             tr(language, "SECURE PAYMENT", "సురక్షిత చెల్లింపు"),
                             fontFamily = Inter,
-                            fontSize = 10.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.6.sp,
                             color = UxGold500
@@ -536,7 +606,7 @@ fun CustomerCheckoutScreen(
                     Text(
                         "By paying, you support the spiritual outreach of ISKCON Tirupati Temple.",
                         fontFamily = Inter,
-                        fontSize = 10.sp,
+                        fontSize = 13.sp,
                         color = EditMuted,
                         textAlign = TextAlign.Center
                     )

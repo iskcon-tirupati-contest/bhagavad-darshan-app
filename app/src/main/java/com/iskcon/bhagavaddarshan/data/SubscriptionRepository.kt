@@ -107,7 +107,7 @@ class SubscriptionRepository(
         razorpayQrId: String = ""
     ) {
         val current = getById(id) ?: return
-        val months = plan.years * 12
+        val months = plan.months
         val currentEnd = runCatching { LocalDate.parse(current.endDate.take(10)) }.getOrNull()
         val base = when {
             currentEnd != null && currentEnd.isAfter(LocalDate.now()) -> currentEnd
@@ -177,7 +177,7 @@ class SubscriptionRepository(
         state: String = "Andhra Pradesh",
         phone: String,
         plan: SubscriptionPlan? = null,
-        planMonths: Int = plan?.years?.times(12) ?: 12,
+        planMonths: Int = plan?.months ?: 12,
         bookSaleAmount: Int = 0,
         paymentRef: String = "",
         paymentMethod: String = "",

@@ -7,11 +7,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -48,6 +50,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.iskcon.bhagavaddarshan.BhagavadDarshanApp
 import com.iskcon.bhagavaddarshan.data.Analytics
@@ -197,8 +200,8 @@ fun AdminDashboardScreen(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         SectionLabel("By flyer plan (this year)")
                         androidx.compose.foundation.layout.Spacer(Modifier.height(4.dp))
-                        listOf(1, 2, 3, 5).forEach { y ->
-                            Text("$y year plan: ${s.byPlanYears[y] ?: 0}", style = MaterialTheme.typography.bodyMedium)
+                        listOf(6, 12, 30).forEach { y ->
+                            Text("$y month plan: ${s.byPlanYears[y] ?: 0}", style = MaterialTheme.typography.bodyMedium)
                         }
                         Text("Book-redeem subscriptions: ${s.byPlanMonthsBook}", style = MaterialTheme.typography.bodyMedium)
                     }
@@ -266,7 +269,11 @@ private fun MetricTile(label: String, value: Long, modifier: Modifier = Modifier
  * fill under the line so the trend reads at a glance.
  */
 @Composable
-fun SalesTrendChart(points: List<Pair<String, Int>>, lineColor: Color) {
+fun SalesTrendChart(
+    points: List<Pair<String, Int>>,
+    lineColor: Color,
+    chartHeight: Dp = 150.dp
+) {
     val reveal = remember { Animatable(0f) }
     LaunchedEffect(points) {
         reveal.snapTo(0f)
@@ -277,12 +284,12 @@ fun SalesTrendChart(points: List<Pair<String, Int>>, lineColor: Color) {
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(150.dp)
+                .height(chartHeight)
         ) {
             Canvas(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(150.dp)
+                    .height(chartHeight)
                     .alpha(reveal.value)
             ) {
                 if (points.isEmpty()) return@Canvas
@@ -341,8 +348,21 @@ fun SalesTrendChart(points: List<Pair<String, Int>>, lineColor: Color) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            points.forEach { (label, _) ->
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f))
+            val step = when {
+                points.size <= 8 -> 1
+                points.size <= 16 -> 2
+                else -> max(1, points.size / 7)
+            }
+            points.forEachIndexed { index, (label, _) ->
+                if (index % step == 0 || index == points.lastIndex) {
+                    Text(
+                        label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                    )
+                } else {
+                    Spacer(Modifier.width(1.dp))
+                }
             }
         }
     }

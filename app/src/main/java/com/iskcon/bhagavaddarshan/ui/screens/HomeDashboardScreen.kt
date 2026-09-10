@@ -44,6 +44,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,6 +64,7 @@ import com.iskcon.bhagavaddarshan.ui.theme.Marigold
 import com.iskcon.bhagavaddarshan.ui.theme.Outline
 import com.iskcon.bhagavaddarshan.ui.theme.SacredGold
 import com.iskcon.bhagavaddarshan.ui.theme.TempleMaroon
+import com.iskcon.bhagavaddarshan.util.UiSounds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -82,8 +84,10 @@ fun HomeDashboardScreen(
     var stats by remember { mutableStateOf<DashboardStats?>(null) }
     var loading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     fun refresh() {
+        UiSounds.click(context)
         loading = true
         scope.launch {
             stats = withContext(Dispatchers.IO) {
@@ -125,7 +129,10 @@ fun HomeDashboardScreen(
                     IconButton(onClick = { refresh() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Refresh")
                     }
-                    IconButton(onClick = onLogout) {
+                    IconButton(onClick = {
+                        UiSounds.click(context)
+                        onLogout()
+                    }) {
                         Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout")
                     }
                 }
@@ -244,16 +251,25 @@ fun HomeDashboardScreen(
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 OutlinedButton(
-                    onClick = onAddCustomer,
+                    onClick = {
+                        UiSounds.click(context)
+                        onAddCustomer()
+                    },
                     border = BorderStroke(1.5.dp, Marigold),
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = Marigold)
                 ) {
                     Text("+ Add Customer")
                 }
-                OutlinedButton(onClick = onReconcile) {
+                OutlinedButton(onClick = {
+                    UiSounds.click(context)
+                    onReconcile()
+                }) {
                     Text("Reconcile")
                 }
-                OutlinedButton(onClick = onViewExpiring) {
+                OutlinedButton(onClick = {
+                    UiSounds.click(context)
+                    onViewExpiring()
+                }) {
                     Text("View Expiring")
                 }
             }
