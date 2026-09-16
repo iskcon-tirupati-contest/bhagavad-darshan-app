@@ -52,10 +52,21 @@ android {
     signingConfigs {
         getByName("debug")
         create("review") {
+            // This repo is public, so the credentials live in keystore.properties,
+            // which is gitignored. Keystore and credentials are backed up in the
+            // private bhagavad-darshan-signing repo.
+            val keystoreProps = Properties()
+            val keystoreFile = rootProject.file("keystore.properties")
+            if (keystoreFile.exists()) {
+                keystoreFile.inputStream().use { keystoreProps.load(it) }
+            }
+            fun signingProp(name: String, env: String): String =
+                keystoreProps.getProperty(name) ?: System.getenv(env) ?: ""
+
             storeFile = rootProject.file("review-keystore.jks")
-            storePassword = "bdreview2026"
-            keyAlias = "bdreview"
-            keyPassword = "bdreview2026"
+            storePassword = signingProp("storePassword", "BD_STORE_PASSWORD")
+            keyAlias = signingProp("keyAlias", "BD_KEY_ALIAS").ifBlank { "bdreview" }
+            keyPassword = signingProp("keyPassword", "BD_KEY_PASSWORD")
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true

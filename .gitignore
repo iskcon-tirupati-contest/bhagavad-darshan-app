@@ -15,4 +15,5 @@ app/build
 
 review-keystore.jks
 *.jks
+keystore.properties
 dist/
