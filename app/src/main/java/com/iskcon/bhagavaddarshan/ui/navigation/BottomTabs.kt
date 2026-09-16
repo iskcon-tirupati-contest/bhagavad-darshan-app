@@ -2,9 +2,9 @@ package com.iskcon.bhagavaddarshan.ui.navigation
 
 enum class AdminTab(val label: String) {
     HOME("Home"),
-    CUSTOMERS("Customers"),
+    CUSTOMERS("Customer"),
     AGENTS("Agents"),
-    COMPLAINTS("Complaints"),
+    COMPLAINTS("Complain"),
     PLANS("Plans"),
     RECONCILE("Reconcile")
 }

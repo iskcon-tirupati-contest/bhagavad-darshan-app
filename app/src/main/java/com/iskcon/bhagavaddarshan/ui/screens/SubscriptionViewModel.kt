@@ -126,6 +126,13 @@ class SubscriptionViewModel(
     private val _selected = MutableStateFlow<Subscription?>(null)
     val selected = _selected.asStateFlow()
 
+    /** Survives detail navigation so Customers filter chip stays selected. */
+    private val _customerListFilter = MutableStateFlow("ALL")
+    val customerListFilter = _customerListFilter.asStateFlow()
+    fun setCustomerListFilter(key: String) {
+        _customerListFilter.value = key
+    }
+
     fun setQuery(value: String) {
         _query.value = value
         refreshLists()
@@ -254,6 +261,16 @@ class SubscriptionViewModel(
         viewModelScope.launch {
             repository.markPaid(id, paymentId, paymentMethod, proofPath)
             _selected.value = repository.getById(id)
+            onDone()
+        }
+    }
+
+    fun markInactive(id: Long, onDone: () -> Unit = {}) {
+        viewModelScope.launch {
+            val current = repository.getById(id) ?: return@launch
+            repository.update(current.copy(status = Subscription.Status.EXPIRED))
+            _selected.value = repository.getById(id)
+            refreshLists()
             onDone()
         }
     }

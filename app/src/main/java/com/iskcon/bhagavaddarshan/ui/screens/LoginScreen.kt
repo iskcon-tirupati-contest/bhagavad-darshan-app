@@ -161,19 +161,6 @@ fun LoginScreen(
                         contentScale = ContentScale.Crop,
                         alignment = Alignment.Center
                     )
-                    Text(
-                        "HDG A.C.Bhakthivedanta Srila Swami Prabhupada",
-                        fontFamily = Montserrat,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = (11 * loginTextScale).sp,
-                        color = Color.White,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .fillMaxWidth()
-                            .background(Color.Black.copy(alpha = 0.35f))
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
                 }
 
                 Column(

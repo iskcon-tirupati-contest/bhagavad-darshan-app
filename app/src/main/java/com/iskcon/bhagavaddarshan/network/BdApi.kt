@@ -251,12 +251,14 @@ class BdApi(private val apiClient: ApiClient = ApiClient()) {
     suspend fun dashboard(
         token: String,
         agentId: Long? = null,
-        period: String? = null
+        period: String? = null,
+        year: Int? = null
     ): Result<JSONObject> {
         val qs = buildString {
             append("?")
             if (agentId != null && agentId > 0) append("agentId=").append(agentId).append('&')
             if (!period.isNullOrBlank()) append("period=").append(period).append('&')
+            if (year != null && year > 0) append("year=").append(year).append('&')
         }.trimEnd('&', '?')
         return get("/v1/analytics/dashboard$qs", token)
     }

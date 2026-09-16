@@ -31,8 +31,8 @@ object CustomerCatalog {
         "A special festival edition on Lord Jagannatha's grand chariot procession and its devotional mood."
     val LATEST_COVER: Any = BdMedia.url("magazine_august_2026.png")
     val LOGIN_HERO: Any = BdMedia.url("login_hero.png")
-    /** Fresh filename so Coil/CDN cannot keep serving the replaced circular image. */
-    val LOGIN_TOP_SECTION: Any = BdMedia.url("login_top_section_original.png?v=old1")
+    /** Cache-busted so devices load the latest Desktop final.png banner. */
+    val LOGIN_TOP_SECTION: Any = BdMedia.url("login_top_section.png?v=final20260910")
     val HOME_EMBLEM: Any = BdMedia.url("tilak_mark.png")
     val LORD_KRISHNA: Any = BdMedia.url("lord_krishna_standing.png")
 

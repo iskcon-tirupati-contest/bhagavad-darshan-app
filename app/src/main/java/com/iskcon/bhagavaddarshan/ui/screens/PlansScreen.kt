@@ -56,9 +56,9 @@ import com.iskcon.bhagavaddarshan.data.SubscriptionPlanEntity
 import com.iskcon.bhagavaddarshan.ui.components.CompactTopBar
 import com.iskcon.bhagavaddarshan.ui.components.EmptyState
 import com.iskcon.bhagavaddarshan.ui.components.ListBottomSafeGap
+import com.iskcon.bhagavaddarshan.ui.components.premiumShadow
 import com.iskcon.bhagavaddarshan.ui.theme.Leaf
 import com.iskcon.bhagavaddarshan.ui.theme.LeafContainer
-import com.iskcon.bhagavaddarshan.ui.theme.SacredGoldLight
 import kotlinx.coroutines.launch
 import org.json.JSONObject
 
@@ -78,7 +78,8 @@ fun PlansScreen(app: BhagavadDarshanApp) {
 
     suspend fun reload() {
         val json = app.api.listStaffPlans(token).getOrThrow()
-        plans = json.toStaffPlanEntities()
+        // Hide legacy year-key duplicates (1 / 2) — rates live on 12 / 30 month plans.
+        plans = json.toStaffPlanEntities().filter { it.years !in setOf(1, 2) }
     }
 
     LaunchedEffect(Unit) {
@@ -187,6 +188,18 @@ fun PlansScreen(app: BhagavadDarshanApp) {
     }
 }
 
+private fun planDisplayTitle(plan: SubscriptionPlanEntity): String {
+    if (plan.labelTe.isNotBlank() && !plan.labelTe.contains("legacy", true)) return plan.labelTe
+    return when (plan.years) {
+        3, 36 -> "3 Years"
+        5, 60 -> "5 Years"
+        6 -> "6 Months"
+        12 -> "1 Year"
+        24, 30 -> "2 Years"
+        else -> if (plan.years >= 6) "${plan.years} Months" else "${plan.years} Year${if (plan.years == 1) "" else "s"}"
+    }
+}
+
 @Composable
 private fun PlanWireframeCard(
     plan: SubscriptionPlanEntity,
@@ -195,94 +208,56 @@ private fun PlanWireframeCard(
     onToggleHidden: () -> Unit
 ) {
     var menuOpen by remember { mutableStateOf(false) }
-    val title = when {
-        plan.labelTe.isNotBlank() -> plan.labelTe
-        plan.years >= 6 -> "${plan.years} Months"
-        plan.years == 1 -> "1 Month"
-        else -> "${plan.years} Months"
-    }
-    val breakdown = if (plan.magazineAmount == 0 && plan.postageAmount == 0) {
-        "One-time dispatch"
-    } else {
-        "Magazine ₹${plan.magazineAmount} + Postage ₹${plan.postageAmount}"
-    }
-    val giftLabel = when {
-        plan.giftBooks <= 0 -> null
-        plan.giftBooks == 1 -> "1 book"
-        else -> "${plan.giftBooks} books"
-    }
+    val title = planDisplayTitle(plan)
+    val rateLine = "₹${"%,d".format(plan.totalAmount)}"
 
     Card(
         modifier = Modifier
             .fillMaxWidth()
+            .premiumShadow(RoundedCornerShape(14.dp), elevation = 8.dp)
             .border(
                 width = 1.dp,
-                color = MaterialTheme.colorScheme.outlineVariant,
-                shape = RoundedCornerShape(12.dp)
+                color = Color(0x33C9A227),
+                shape = RoundedCornerShape(14.dp)
             ),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFBF6)),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Row(
             Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 8.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.Top
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
                 Icons.Default.DragHandle,
                 contentDescription = "Reorder",
                 tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.55f),
                 modifier = Modifier
-                    .padding(top = 2.dp, end = 4.dp)
+                    .padding(end = 4.dp)
                     .size(22.dp)
             )
             Column(Modifier.weight(1f)) {
                 Text(
-                    "$title · ₹${"%,d".format(plan.totalAmount)}",
+                    "$title · $rateLine",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.onSurface
                 )
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    breakdown,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
                 Spacer(Modifier.height(8.dp))
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                Surface(
+                    shape = RoundedCornerShape(50),
+                    color = if (plan.active) LeafContainer else Color(0xFFEEEEEE)
                 ) {
-                    if (giftLabel != null) {
-                        Surface(
-                            shape = RoundedCornerShape(50),
-                            color = SacredGoldLight
-                        ) {
-                            Text(
-                                "🎁  $giftLabel",
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color(0xFF5D4037),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(50),
-                        color = if (plan.active) LeafContainer else Color(0xFFEEEEEE)
-                    ) {
-                        Text(
-                            if (plan.active) "Active" else "Hidden",
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (plan.active) Leaf else Color(0xFF616161),
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.sp
-                        )
-                    }
+                    Text(
+                        if (plan.active) "Active" else "Inactive",
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = if (plan.active) Leaf else Color(0xFF616161),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp
+                    )
                 }
             }
             IconButton(onClick = { menuOpen = true }, modifier = Modifier.size(36.dp)) {
@@ -298,7 +273,7 @@ private fun PlanWireframeCard(
                     onClick = { menuOpen = false; onEdit() }
                 )
                 DropdownMenuItem(
-                    text = { Text(if (plan.active) "Hide plan" else "Show plan") },
+                    text = { Text(if (plan.active) "Deactivate" else "Activate") },
                     onClick = { menuOpen = false; onToggleHidden() }
                 )
                 DropdownMenuItem(
@@ -317,7 +292,7 @@ private fun PlanEditDialog(
     onSave: (SubscriptionPlanEntity) -> Unit
 ) {
     var years by remember {
-        mutableStateOf((initial?.years ?: 1).toString())
+        mutableStateOf((initial?.years ?: 12).toString())
     }
     var mag by remember {
         mutableStateOf((initial?.magazineAmount ?: SubscriptionPlan.TWELVE_MONTHS.magazineRupees).toString())
@@ -325,6 +300,13 @@ private fun PlanEditDialog(
     var post by remember {
         mutableStateOf((initial?.postageAmount ?: SubscriptionPlan.TWELVE_MONTHS.postageRupees).toString())
     }
+    var oldMag by remember {
+        mutableStateOf((initial?.oldMagazineAmount ?: 0).toString())
+    }
+    var oldPost by remember {
+        mutableStateOf((initial?.oldPostageAmount ?: 0).toString())
+    }
+    var offer by remember { mutableStateOf(initial?.offerLabel.orEmpty()) }
     var gifts by remember { mutableStateOf((initial?.giftBooks ?: 0).toString()) }
     var label by remember { mutableStateOf(initial?.labelTe.orEmpty()) }
     var active by remember { mutableStateOf(initial?.active ?: true) }
@@ -338,10 +320,13 @@ private fun PlanEditDialog(
                 OutlinedTextField(value = years, onValueChange = { years = it.filter(Char::isDigit).take(2) }, label = { Text("Months (plan key)") }, singleLine = true, shape = RoundedCornerShape(8.dp))
                 OutlinedTextField(value = mag, onValueChange = { mag = it.filter(Char::isDigit) }, label = { Text("Magazine ₹") }, singleLine = true, shape = RoundedCornerShape(8.dp))
                 OutlinedTextField(value = post, onValueChange = { post = it.filter(Char::isDigit) }, label = { Text("Postage ₹") }, singleLine = true, shape = RoundedCornerShape(8.dp))
+                OutlinedTextField(value = oldMag, onValueChange = { oldMag = it.filter(Char::isDigit) }, label = { Text("Old magazine ₹") }, singleLine = true, shape = RoundedCornerShape(8.dp))
+                OutlinedTextField(value = oldPost, onValueChange = { oldPost = it.filter(Char::isDigit) }, label = { Text("Old postage ₹") }, singleLine = true, shape = RoundedCornerShape(8.dp))
+                OutlinedTextField(value = offer, onValueChange = { offer = it }, label = { Text("Offer label") }, singleLine = true, shape = RoundedCornerShape(8.dp))
                 OutlinedTextField(value = gifts, onValueChange = { gifts = it.filter(Char::isDigit) }, label = { Text("Gift books") }, singleLine = true, shape = RoundedCornerShape(8.dp))
-                OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Display label (e.g. 12 Months)") }, shape = RoundedCornerShape(8.dp))
+                OutlinedTextField(value = label, onValueChange = { label = it }, label = { Text("Display label") }, shape = RoundedCornerShape(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text("Active (visible)", Modifier.weight(1f))
+                    Text("Active (for new sales)", Modifier.weight(1f))
                     Switch(checked = active, onCheckedChange = { active = it })
                 }
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -352,6 +337,8 @@ private fun PlanEditDialog(
                 val y = years.toIntOrNull() ?: 0
                 val m = mag.toIntOrNull() ?: -1
                 val p = post.toIntOrNull() ?: -1
+                val om = oldMag.toIntOrNull() ?: 0
+                val op = oldPost.toIntOrNull() ?: 0
                 val g = gifts.toIntOrNull() ?: 0
                 if (y !in 1..99 || m < 0 || p < 0) {
                     error = "Enter valid months and amounts"
@@ -368,7 +355,10 @@ private fun PlanEditDialog(
                             "$y Months"
                         },
                         active = active,
-                        sortOrder = initial?.sortOrder ?: y
+                        sortOrder = initial?.sortOrder ?: y,
+                        oldMagazineAmount = om,
+                        oldPostageAmount = op,
+                        offerLabel = offer.trim()
                     )
                 )
             }) { Text("Save") }
@@ -395,6 +385,14 @@ private fun JSONObject.toStaffPlanEntity(): SubscriptionPlanEntity {
         has("postagePaise") && !isNull("postagePaise") -> optInt("postagePaise")
         else -> optInt("postageAmount") * 100
     }
+    val oldMagPaise = when {
+        has("oldMagazinePaise") && !isNull("oldMagazinePaise") -> optInt("oldMagazinePaise")
+        else -> optInt("oldMagazineAmount") * 100
+    }
+    val oldPostPaise = when {
+        has("oldPostagePaise") && !isNull("oldPostagePaise") -> optInt("oldPostagePaise")
+        else -> optInt("oldPostageAmount") * 100
+    }
     return SubscriptionPlanEntity(
         id = optLong("id"),
         years = optInt("years"),
@@ -403,7 +401,10 @@ private fun JSONObject.toStaffPlanEntity(): SubscriptionPlanEntity {
         giftBooks = optInt("giftBooks"),
         labelTe = optString("label").ifBlank { optString("labelTe") },
         active = optBoolean("active", true),
-        sortOrder = optInt("sortOrder")
+        sortOrder = optInt("sortOrder"),
+        oldMagazineAmount = oldMagPaise / 100,
+        oldPostageAmount = oldPostPaise / 100,
+        offerLabel = optString("offerLabel")
     )
 }
 
@@ -412,6 +413,9 @@ private fun SubscriptionPlanEntity.toStaffPlanBody(): JSONObject = JSONObject().
     put("label", labelTe)
     put("magazinePaise", magazineAmount * 100)
     put("postagePaise", postageAmount * 100)
+    put("oldMagazinePaise", oldMagazineAmount * 100)
+    put("oldPostagePaise", oldPostageAmount * 100)
+    put("offerLabel", offerLabel)
     put("giftBooks", giftBooks)
     put("active", active)
     put("sortOrder", sortOrder)

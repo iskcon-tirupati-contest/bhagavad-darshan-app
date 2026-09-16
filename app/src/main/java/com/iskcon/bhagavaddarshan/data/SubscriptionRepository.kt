@@ -365,6 +365,7 @@ fun JSONObject.toSubscription(): Subscription {
         source = s("source").ifBlank { Subscription.Source.COLLECTOR },
         notes = s("notes"),
         expiryReminderSentAt = 0L,
+        unsure = optBoolean("unsure", false),
         createdAt = System.currentTimeMillis()
     )
 }
@@ -397,3 +398,4 @@ fun Subscription.toJsonBody(): JSONObject = JSONObject()
     .put("razorpayQrId", razorpayQrId)
     .put("source", source)
     .put("notes", notes)
+    .put("unsure", unsure)

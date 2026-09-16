@@ -69,6 +69,7 @@ import com.iskcon.bhagavaddarshan.R
 import com.iskcon.bhagavaddarshan.ui.components.AgentNavBarGreen
 import com.iskcon.bhagavaddarshan.ui.components.AgentNavBarSelected
 import com.iskcon.bhagavaddarshan.ui.components.CompactBottomBar
+import com.iskcon.bhagavaddarshan.ui.components.PremiumScreenBackdrop
 import com.iskcon.bhagavaddarshan.ui.components.PressableOutlineButton
 import com.iskcon.bhagavaddarshan.ui.components.PressablePrimaryButton
 import com.iskcon.bhagavaddarshan.ui.navigation.AdminTab
@@ -379,9 +380,10 @@ private fun AdminShell(
                     )
                 }
             }
-        }
+        },
+        containerColor = Color.Transparent
     ) { padding ->
-        Box(Modifier.padding(padding)) {
+        PremiumScreenBackdrop(Modifier.padding(padding)) {
             AnimatedContent(
                 targetState = tabs[tab],
                 label = "adminTab",
@@ -410,6 +412,7 @@ private fun AdminShell(
                         },
                         onViewExpiring = {
                             UiSounds.click(context)
+                            viewModel.setCustomerListFilter("EXPIRING_NEXT")
                             previousTab = tab
                             tab = tabs.indexOf(AdminTab.CUSTOMERS)
                         }
@@ -549,7 +552,7 @@ private fun AgentShell(
     }
 }
 
-/** Bottom-nav item whose icon gently scales up when selected, on a pill-shaped indicator. */
+/** Bottom-nav item — selected icon gets soft shadow only (no pill/blob). */
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.AnimatedNavItem(
     selected: Boolean,
@@ -560,12 +563,12 @@ private fun androidx.compose.foundation.layout.RowScope.AnimatedNavItem(
     showLabel: Boolean = true
 ) {
     val scale by animateFloatAsState(
-        targetValue = if (selected) 1.12f else 1f,
+        targetValue = if (selected) 1.1f else 1f,
         animationSpec = tween(180),
         label = "navIconScale"
     )
     val selectedColor = if (darkBar) AgentNavBarSelected else MaterialTheme.colorScheme.primary
-    val unselected = if (darkBar) Color(0xFF6B7F74) else Color(0xFF9E9E9E)
+    val unselected = if (darkBar) Color(0xFF6B7F74) else Color(0xFF8D7B6E)
     NavigationBarItem(
         selected = selected,
         onClick = onClick,
@@ -574,12 +577,26 @@ private fun androidx.compose.foundation.layout.RowScope.AnimatedNavItem(
                 icon,
                 contentDescription = label,
                 modifier = Modifier
-                    .size(if (showLabel) 20.dp else 24.dp)
-                    .graphicsLayer(scaleX = scale, scaleY = scale)
+                    .size(if (showLabel) 22.dp else 24.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        shadowElevation = if (selected) 8f else 0f
+                        shape = androidx.compose.foundation.shape.CircleShape
+                        clip = false
+                    }
             )
         },
         label = if (showLabel) {
-            { Text(label, fontSize = 10.sp, maxLines = 1) }
+            {
+                Text(
+                    label,
+                    fontSize = 9.sp,
+                    maxLines = 1,
+                    softWrap = false,
+                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                )
+            }
         } else {
             { }
         },
@@ -587,7 +604,7 @@ private fun androidx.compose.foundation.layout.RowScope.AnimatedNavItem(
         colors = NavigationBarItemDefaults.colors(
             selectedIconColor = selectedColor,
             selectedTextColor = selectedColor,
-            indicatorColor = selectedColor.copy(alpha = if (darkBar) 0.22f else 0.14f),
+            indicatorColor = Color.Transparent,
             unselectedIconColor = unselected,
             unselectedTextColor = unselected
         )

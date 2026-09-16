@@ -1,10 +1,10 @@
 package com.iskcon.bhagavaddarshan.ui.screens
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -15,7 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,8 +23,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -47,6 +45,9 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.iskcon.bhagavaddarshan.data.Subscription
+import com.iskcon.bhagavaddarshan.data.isExpiredStatus
+import com.iskcon.bhagavaddarshan.data.listDateRangeLabel
+import com.iskcon.bhagavaddarshan.data.statusLabelShort
 import com.iskcon.bhagavaddarshan.ui.components.ActiveGreenChip
 import com.iskcon.bhagavaddarshan.ui.components.CompactTopBar
 import com.iskcon.bhagavaddarshan.ui.components.EmptyState
@@ -54,7 +55,7 @@ import com.iskcon.bhagavaddarshan.ui.components.InitialsAvatar
 import com.iskcon.bhagavaddarshan.ui.components.ListBottomSafeGap
 import com.iskcon.bhagavaddarshan.ui.components.MetaChip
 import com.iskcon.bhagavaddarshan.ui.components.SoftSearchField
-import com.iskcon.bhagavaddarshan.ui.components.StaggeredEntrance
+import com.iskcon.bhagavaddarshan.ui.components.premiumCardSurface
 import com.iskcon.bhagavaddarshan.ui.theme.AmberPending
 import com.iskcon.bhagavaddarshan.ui.theme.AmberPendingContainer
 import com.iskcon.bhagavaddarshan.ui.theme.InkSoft
@@ -64,11 +65,25 @@ import com.iskcon.bhagavaddarshan.ui.theme.SoftRed
 import com.iskcon.bhagavaddarshan.ui.theme.SoftRedContainer
 import com.iskcon.bhagavaddarshan.util.UiSounds
 
-private enum class CustomerFilter(val label: String) {
-    ALL("All"),
-    ACTIVE("Active"),
-    EXPIRED("Expired"),
-    PENDING("Pending")
+private enum class CustomerFilter(val key: String, val label: String) {
+    ALL("ALL", "All"),
+    ACTIVE("ACTIVE", "Active"),
+    EXPIRED("EXPIRED", "Expired"),
+    PENDING("PENDING", "Pending"),
+    EXPIRING_NEXT("EXPIRING_NEXT", "Expiring Next Mo"),
+    NOT_SURE("NOT_SURE", "Not Sure"),
+    SURE("SURE", "Sure");
+
+    companion object {
+        fun fromKey(key: String): CustomerFilter =
+            entries.firstOrNull { it.key == key } ?: ALL
+    }
+}
+
+private fun Subscription.expiresNextCalendarMonth(): Boolean {
+    val end = runCatching { java.time.LocalDate.parse(endDate.take(10)) }.getOrNull() ?: return false
+    val next = java.time.LocalDate.now().plusMonths(1)
+    return end.year == next.year && end.month == next.month
 }
 
 @OptIn(ExperimentalMaterial3Api::class, androidx.compose.foundation.ExperimentalFoundationApi::class)
@@ -80,9 +95,10 @@ fun CustomersScreen(
     onEdit: (Long) -> Unit
 ) {
     var query by remember { mutableStateOf("") }
-    var filter by remember { mutableStateOf(CustomerFilter.ALL) }
+    val savedFilterKey by viewModel.customerListFilter.collectAsState()
+    val filter = remember(savedFilterKey) { CustomerFilter.fromKey(savedFilterKey) }
     val list by viewModel.scopedSubscriptions.collectAsState()
-    var deleteId by remember { mutableStateOf<Long?>(null) }
+    var inactiveId by remember { mutableStateOf<Long?>(null) }
     val context = LocalContext.current
 
     val filtered = remember(list, query, filter) {
@@ -91,9 +107,12 @@ fun CustomersScreen(
                 when (filter) {
                     CustomerFilter.ALL -> true
                     CustomerFilter.ACTIVE -> it.status.contains("active", true)
-                    CustomerFilter.EXPIRED -> it.status.contains("expired", true)
+                    CustomerFilter.EXPIRED -> it.isExpiredStatus()
                     CustomerFilter.PENDING ->
                         it.status.contains("pending", true) || it.status.contains("failed", true)
+                    CustomerFilter.EXPIRING_NEXT -> it.expiresNextCalendarMonth()
+                    CustomerFilter.NOT_SURE -> it.unsure
+                    CustomerFilter.SURE -> !it.unsure
                 }
             }
             .filter {
@@ -157,15 +176,18 @@ fun CustomersScreen(
                         selected = selected,
                         onClick = {
                             UiSounds.click(context)
-                            filter = f
+                            viewModel.setCustomerListFilter(f.key)
                         },
                         label = { Text(f.label) },
                         border = if (selected) null else BorderStroke(1.dp, Outline),
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = Marigold,
                             selectedLabelColor = Color.White,
-                            containerColor = Color.Transparent,
+                            containerColor = Color.White,
                             labelColor = InkSoft
+                        ),
+                        elevation = FilterChipDefaults.filterChipElevation(
+                            elevation = if (selected) 6.dp else 2.dp
                         )
                     )
                 }
@@ -182,42 +204,40 @@ fun CustomersScreen(
                     contentPadding = PaddingValues(top = 12.dp, bottom = ListBottomSafeGap + 88.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    itemsIndexed(filtered, key = { _, it -> it.id }) { index, item ->
-                        StaggeredEntrance(index = index) {
-                            CustomerRow(
-                                item = item,
-                                onEdit = {
-                                    UiSounds.click(context)
-                                    onEdit(item.id)
-                                },
-                                onDelete = {
-                                    UiSounds.click(context)
-                                    deleteId = item.id
-                                }
-                            )
-                        }
+                    items(filtered, key = { it.id }) { item ->
+                        CustomerRow(
+                            item = item,
+                            onEdit = {
+                                UiSounds.click(context)
+                                onEdit(item.id)
+                            },
+                            onMarkInactive = {
+                                UiSounds.click(context)
+                                inactiveId = item.id
+                            }
+                        )
                     }
                 }
             }
         }
     }
 
-    deleteId?.let { id ->
+    inactiveId?.let { id ->
         AlertDialog(
-            onDismissRequest = { deleteId = null },
-            title = { Text("Delete customer?") },
-            text = { Text("This removes the subscription record.") },
+            onDismissRequest = { inactiveId = null },
+            title = { Text("Mark inactive?") },
+            text = { Text("This moves the customer to Expired. You can still open the record later.") },
             confirmButton = {
                 TextButton(onClick = {
-                    UiSounds.delete(context)
-                    viewModel.delete(id) {}
-                    deleteId = null
-                }) { Text("Delete", color = MaterialTheme.colorScheme.error) }
+                    UiSounds.click(context)
+                    viewModel.markInactive(id)
+                    inactiveId = null
+                }) { Text("Mark inactive", color = SoftRed) }
             },
             dismissButton = {
                 TextButton(onClick = {
                     UiSounds.click(context)
-                    deleteId = null
+                    inactiveId = null
                 }) { Text("Cancel") }
             }
         )
@@ -229,19 +249,18 @@ fun CustomersScreen(
 private fun CustomerRow(
     item: Subscription,
     onEdit: () -> Unit,
-    onDelete: () -> Unit
+    onMarkInactive: () -> Unit
 ) {
-    Card(
+    val shape = RoundedCornerShape(16.dp)
+    val expired = item.isExpiredStatus()
+    Box(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Outline, RoundedCornerShape(12.dp))
+            .premiumCardSurface(shape = shape, elevation = 8.dp)
             .combinedClickable(
                 onClick = onEdit,
-                onLongClick = onDelete
-            ),
-        shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                onLongClick = onMarkInactive
+            )
     ) {
         Column(Modifier.padding(14.dp)) {
             Row(
@@ -265,53 +284,29 @@ private fun CustomerRow(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
-                Text(
-                    "#${item.receiptNo}",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = InkSoft
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                MetaChip(
-                    text = when {
-                        item.planYears >= 6 -> "${item.planYears} mo"
-                        item.planMonths > 0 -> "${item.planMonths} mo"
-                        item.planYears > 0 -> "${item.planYears * 12} mo"
-                        else -> "—"
-                    }
-                )
-                MetaChip(text = "₹${item.totalAmount}")
-                StatusMetaChip(status = item.status)
+                if (expired) {
+                    MetaChip(
+                        text = item.statusLabelShort(),
+                        container = SoftRedContainer,
+                        content = SoftRed
+                    )
+                } else if (item.status.contains("active", true)) {
+                    ActiveGreenChip(item.statusLabelShort())
+                } else {
+                    MetaChip(
+                        text = item.statusLabelShort(),
+                        container = AmberPendingContainer,
+                        content = AmberPending
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "By: ${item.registeredBy.ifBlank { "self" }}",
-                style = MaterialTheme.typography.bodySmall,
-                color = InkSoft
+                item.listDateRangeLabel(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = InkSoft,
+                fontWeight = FontWeight.Medium
             )
         }
-    }
-}
-
-@Composable
-private fun StatusMetaChip(status: String) {
-    when {
-        status.contains("active", true) -> ActiveGreenChip(
-            text = status.replace('_', ' ').replaceFirstChar { it.uppercase() }
-        )
-        status.contains("expired", true) || status.contains("failed", true) -> MetaChip(
-            text = status.replace('_', ' ').replaceFirstChar { it.uppercase() },
-            container = SoftRedContainer,
-            content = SoftRed
-        )
-        else -> MetaChip(
-            text = status.replace('_', ' ').replaceFirstChar { it.uppercase() },
-            container = AmberPendingContainer,
-            content = AmberPending
-        )
     }
 }

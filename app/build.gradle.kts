@@ -9,14 +9,14 @@ import java.util.Properties
 
 android {
     namespace = "com.iskcon.bhagavaddarshan"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.iskcon.bhagavaddarshan"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 35
-        versionName = "1.1.6"
+        targetSdk = 36
+        versionCode = 42
+        versionName = "1.2.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
         val localProps = Properties()
@@ -100,6 +100,10 @@ android {
             // Shrink can strip density mipmaps / break OEM APK preview (Vivo folder closes).
             isShrinkResources = false
             signingConfig = signingConfigs.getByName("review")
+            // Embed native debug symbols in the AAB so Play can symbolicate crashes.
+            ndk {
+                debugSymbolLevel = "SYMBOL_TABLE"
+            }
             // Lightsail networking still blocks 443; HTTP :80 works until HTTPS is opened.
             buildConfigField("String", "API_BASE_URL", "\"http://13.232.71.204\"")
             // Secrets stay empty — payments/OTP go through the cloud API.

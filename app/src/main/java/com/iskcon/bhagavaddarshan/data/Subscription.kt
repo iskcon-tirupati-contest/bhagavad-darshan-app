@@ -40,6 +40,8 @@ data class Subscription(
     val notes: String = "",
     /** Epoch ms when 1-month WhatsApp expiry reminder was sent (0 = never). */
     val expiryReminderSentAt: Long = 0L,
+    /** Admin verification: true = needs call / something uncertain. */
+    val unsure: Boolean = false,
     val createdAt: Long = System.currentTimeMillis()
 ) {
     object Status {

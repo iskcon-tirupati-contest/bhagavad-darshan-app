@@ -22,10 +22,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -60,7 +66,7 @@ fun AccentSectionTitle(title: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Soft filled search field (Figma Customers) */
+/** Soft filled search field — border turns marigold while focused. */
 @Composable
 fun SoftSearchField(
     value: String,
@@ -68,25 +74,30 @@ fun SoftSearchField(
     placeholder: String,
     modifier: Modifier = Modifier
 ) {
+    var focused by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(14.dp)
+    val borderColor = if (focused) Marigold else Color(0x33C9A227)
     Row(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 3.dp,
-                shape = RoundedCornerShape(12.dp),
-                spotColor = Color(0x1A000000),
-                ambientColor = Color(0x14000000)
+                elevation = if (focused) 10.dp else 8.dp,
+                shape = shape,
+                spotColor = Color(0x337A1F3D),
+                ambientColor = Color(0x1A3E2723)
             )
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFFF6F2EC))
-            .border(1.dp, Color(0xFFE8E0D4), RoundedCornerShape(12.dp))
+            .clip(shape)
+            .background(
+                Brush.verticalGradient(listOf(Color(0xFFFFFCF8), Color(0xFFF6F0E8)))
+            )
+            .border(1.5.dp, borderColor, shape)
             .padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
             Icons.Default.Search,
             contentDescription = null,
-            tint = Color(0xFF9E9E9E),
+            tint = if (focused) Marigold else Color(0xFF9E9E9E),
             modifier = Modifier.size(20.dp)
         )
         Spacer(Modifier.width(10.dp))
@@ -96,7 +107,9 @@ fun SoftSearchField(
             singleLine = true,
             textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
             cursorBrush = SolidColor(Marigold),
-            modifier = Modifier.weight(1f),
+            modifier = Modifier
+                .weight(1f)
+                .onFocusChanged { focused = it.isFocused },
             decorationBox = { inner ->
                 if (value.isEmpty()) {
                     Text(placeholder, color = Color(0xFF9E9E9E), style = MaterialTheme.typography.bodyLarge)
@@ -175,24 +188,46 @@ fun FigmaStatCard(
     iconTint: Color = Marigold,
     compact: Boolean = false
 ) {
+    val shape = RoundedCornerShape(if (compact) 14.dp else 16.dp)
+    val wash = Brush.verticalGradient(
+        listOf(
+            containerColor,
+            containerColor.copy(alpha = 0.92f),
+            Color.White.copy(alpha = 0.55f)
+        )
+    )
     Box(
         modifier = modifier
             .shadow(
-                elevation = if (compact) 3.dp else 6.dp,
-                shape = RoundedCornerShape(if (compact) 10.dp else 12.dp),
-                spotColor = Color(0x33000000),
-                ambientColor = Color(0x22000000)
+                elevation = if (compact) 8.dp else 12.dp,
+                shape = shape,
+                spotColor = Color(0x337A1F3D),
+                ambientColor = Color(0x1A3E2723)
             )
-            .clip(RoundedCornerShape(if (compact) 10.dp else 12.dp))
-            .background(containerColor)
-            .border(1.dp, Color(0xFFE8E0D6), RoundedCornerShape(if (compact) 10.dp else 12.dp))
+            .clip(shape)
+            .background(wash)
+            .border(1.dp, Color(0x33C9A227), shape)
             .padding(
-                horizontal = if (compact) 10.dp else 12.dp,
-                vertical = if (compact) 8.dp else 14.dp
+                horizontal = if (compact) 12.dp else 14.dp,
+                vertical = if (compact) 12.dp else 16.dp
             )
     ) {
+        // Left accent tick for depth
+        Box(
+            Modifier
+                .align(Alignment.CenterStart)
+                .width(3.dp)
+                .height(if (compact) 28.dp else 36.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(
+                    Brush.verticalGradient(listOf(iconTint, iconTint.copy(alpha = 0.45f)))
+                )
+        )
         if (compact) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.padding(start = 10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 if (icon != null) {
                     Box(
                         Modifier
@@ -216,14 +251,14 @@ fun FigmaStatCard(
                     Text(
                         label.uppercase(),
                         style = MaterialTheme.typography.labelSmall,
-                        color = Color(0xFF9E9E9E),
+                        color = Color(0xFF8D7B6E),
                         letterSpacing = 0.4.sp,
                         maxLines = 1
                     )
                 }
             }
         } else {
-            Column {
+            Column(Modifier.padding(start = 10.dp)) {
                 if (icon != null) {
                     Box(
                         Modifier
@@ -246,7 +281,7 @@ fun FigmaStatCard(
                 Text(
                     label.uppercase(),
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color(0xFF9E9E9E),
+                    color = Color(0xFF8D7B6E),
                     letterSpacing = 0.6.sp
                 )
             }

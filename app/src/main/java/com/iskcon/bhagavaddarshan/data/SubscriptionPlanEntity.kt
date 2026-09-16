@@ -7,16 +7,22 @@ import androidx.room.PrimaryKey
 data class SubscriptionPlanEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val years: Int,
-    /** Magazine amount in rupees. */
+    /** Magazine amount in rupees (new / current price). */
     val magazineAmount: Int,
-    /** Postage amount in rupees. */
+    /** Postage amount in rupees (new / current price). */
     val postageAmount: Int,
     val giftBooks: Int = 0,
     val labelTe: String = "",
     val active: Boolean = true,
-    val sortOrder: Int = 0
+    val sortOrder: Int = 0,
+    /** Legacy flyer price in rupees (0 if none). */
+    val oldMagazineAmount: Int = 0,
+    val oldPostageAmount: Int = 0,
+    /** e.g. "6 Months FREE" for 2-year plan. */
+    val offerLabel: String = ""
 ) {
     val totalAmount: Int get() = magazineAmount + postageAmount
+    val oldTotalAmount: Int get() = oldMagazineAmount + oldPostageAmount
 
     /** Map DB row to flyer enum (fallback by years when amounts differ). */
     fun toSubscriptionPlan(): SubscriptionPlan =
@@ -32,7 +38,10 @@ data class SubscriptionPlanEntity(
                 giftBooks = plan.giftBooks,
                 labelTe = plan.labelEn,
                 active = true,
-                sortOrder = sortOrder
+                sortOrder = sortOrder,
+                oldMagazineAmount = 0,
+                oldPostageAmount = 0,
+                offerLabel = if (plan == SubscriptionPlan.THIRTY_MONTHS) "6 Months FREE" else ""
             )
     }
 }
